@@ -1,0 +1,316 @@
+---
+- name: Install global Pixi packages (MVP)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    pixi_bin: "{{ lookup('env', 'HOME') }}/.pixi/bin/pixi"
+    catppuccin_tmux_version: v2.1.3
+    catppuccin_tmux_dest: "{{ lookup('env', 'HOME') }}/.config/tmux/plugins/catppuccin/tmux"
+    catppuccin_fish_dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin"
+    catppuccin_btop_dest: "{{ lookup('env', 'HOME') }}/.config/btop/catppuccin"
+    local_bin_dir: "{{ lookup('env', 'HOME') }}/.local/bin"
+    codex_os: "{{ lookup('pipe', 'uname -s') }}"
+    codex_arch: "{{ lookup('pipe', 'uname -m') }}"
+    codex_linux_arch: "{{ 'x86_64' if codex_arch == 'x86_64' else ('aarch64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
+    codex_linux_asset: "codex-{{ codex_linux_arch }}-unknown-linux-musl.tar.gz"
+    codex_linux_download_url: "https://github.com/openai/codex/releases/latest/download/{{ codex_linux_asset }}"
+    gh_linux_arch: "{{ 'amd64' if codex_arch == 'x86_64' else ('arm64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
+    gh_release_api_url: "https://api.github.com/repos/cli/cli/releases/latest"
+    pixi_global_packages:
+      - spec: fish
+        channel: conda-forge
+      - spec: nvim
+        channel: conda-forge
+      - spec: tmux==3.6a
+        channel: conda-forge
+      - spec: ripgrep
+        channel: conda-forge
+      - spec: unzip
+        channel: conda-forge
+      - spec: btop
+        channel: conda-forge
+
+  tasks:
+    - name: Ensure configured global packages are installed via Pixi
+      command: "{{ pixi_bin }} global install --channel {{ item.channel }} {{ item.spec }}"
+      register: pixi_global_install
+      loop: "{{ pixi_global_packages }}"
+      changed_when: "'already installed' not in (pixi_global_install.stdout | lower)"
+
+    - name: Ensure local bin directory exists
+      file:
+        path: "{{ local_bin_dir }}"
+        state: directory
+
+    - name: Ensure bootstrap temporary directory exists
+      tempfile:
+        state: directory
+        prefix: bootstrap-
+        path: /tmp
+      register: bootstrap_tmp_dir
+      when: codex_os == 'Linux'
+
+    - name: Ensure global Git config is installed
+      copy:
+        src: "{{ playbook_dir }}/gitconfig"
+        dest: "{{ lookup('env', 'HOME') }}/.gitconfig"
+        mode: "0644"
+
+    - name: Ensure Codex is installed with Homebrew on macOS
+      shell: brew install --cask codex
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+      when: codex_os == 'Darwin'
+
+    - name: Ensure GitHub CLI is installed with Homebrew on macOS
+      shell: brew install gh
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+      when: codex_os == 'Darwin'
+
+    - name: Ensure macOS Homebrew Codex is linked in local bin
+      shell: |
+        codex_path="$(command -v codex)"
+        ln -sf "$codex_path" "{{ local_bin_dir }}/codex"
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+      when: codex_os == 'Darwin'
+
+    - name: Ensure Linux architecture is supported for Codex musl package
+      fail:
+        msg: "Unsupported Linux architecture for Codex musl release: {{ codex_arch }}"
+      when:
+        - codex_os == 'Linux'
+        - codex_linux_arch == ''
+
+    - name: Ensure Linux architecture is supported for GitHub CLI release package
+      fail:
+        msg: "Unsupported Linux architecture for GitHub CLI release package: {{ codex_arch }}"
+      when:
+        - codex_os == 'Linux'
+        - gh_linux_arch == ''
+
+    - name: Get latest GitHub CLI release metadata
+      uri:
+        url: "{{ gh_release_api_url }}"
+        return_content: true
+      register: gh_release
+      when: codex_os == 'Linux'
+
+    - name: Set GitHub CLI release asset names
+      set_fact:
+        gh_version: "{{ gh_release.json.tag_name | regex_replace('^v', '') }}"
+        gh_release_dir: "gh_{{ gh_release.json.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}"
+        gh_archive: "gh_{{ gh_release.json.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}.tar.gz"
+      when: codex_os == 'Linux'
+
+    - name: Set GitHub CLI archive digest from release metadata
+      set_fact:
+        gh_archive_sha256: "{{ ((gh_release.json.assets | selectattr('name', 'equalto', gh_archive) | map(attribute='digest') | list | first) | default('')) | regex_replace('^sha256:', '') }}"
+      when: codex_os == 'Linux'
+
+    - name: Ensure GitHub CLI archive digest exists in release metadata
+      fail:
+        msg: "Missing sha256 digest for {{ gh_archive }} in GitHub CLI release metadata."
+      when:
+        - codex_os == 'Linux'
+        - gh_archive_sha256 == ''
+
+    - name: Download latest GitHub CLI Linux archive
+      get_url:
+        url: "https://github.com/cli/cli/releases/download/{{ gh_release.json.tag_name }}/{{ gh_archive }}"
+        dest: "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}"
+        mode: "0644"
+      when: codex_os == 'Linux'
+
+    - name: Verify GitHub CLI Linux archive checksum
+      shell: |
+        set -euo pipefail
+        expected="{{ gh_archive_sha256 }}"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}" | awk '{print $1}')"
+        else
+          actual="$(shasum -a 256 "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}" | awk '{print $1}')"
+        fi
+        test "$expected" = "$actual"
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Extract latest GitHub CLI Linux archive
+      unarchive:
+        src: "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}"
+        dest: "{{ bootstrap_tmp_dir.path }}"
+        remote_src: true
+      when: codex_os == 'Linux'
+
+    - name: Install GitHub CLI binary to local bin on Linux
+      copy:
+        src: "{{ bootstrap_tmp_dir.path }}/{{ gh_release_dir }}/bin/gh"
+        dest: "{{ local_bin_dir }}/gh"
+        mode: "0755"
+        remote_src: true
+      when: codex_os == 'Linux'
+
+    - name: Download latest Codex Linux musl archive
+      get_url:
+        url: "{{ codex_linux_download_url }}"
+        dest: "{{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}"
+        mode: "0644"
+      when: codex_os == 'Linux'
+
+    - name: Extract latest Codex Linux musl archive
+      unarchive:
+        src: "{{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}"
+        dest: "{{ bootstrap_tmp_dir.path }}"
+        remote_src: true
+      when: codex_os == 'Linux'
+
+    - name: Install Codex binary to local bin on Linux
+      copy:
+        src: "{{ bootstrap_tmp_dir.path }}/codex-{{ codex_linux_arch }}-unknown-linux-musl"
+        dest: "{{ local_bin_dir }}/codex"
+        mode: "0755"
+        remote_src: true
+      when: codex_os == 'Linux'
+
+    - name: Bootstrap Neovim config from kickstart.nvim
+      shell: git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+      args:
+        creates: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/.git' }}"
+        executable: /bin/bash
+
+    - name: Ensure kickstart uses current Mason package name for Lua LS
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "'lua_ls', -- Lua Language server"
+        replace: "'lua-language-server', -- Lua Language server"
+
+    - name: Ensure kickstart colorscheme plugin is catppuccin
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?s)\\{ -- You can easily change to a different colorscheme\\..*?\\n  \\},"
+        replace: '  { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
+
+    - name: Ensure existing one-line catppuccin entry uses latte config
+      lineinfile:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        search_string: '{ "catppuccin/nvim", name = "catppuccin", priority = 1000 },'
+        line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
+
+    - name: Sync Neovim plugins headlessly
+      shell: nvim --headless "+Lazy! sync" +qa
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+
+    - name: Ensure Catppuccin tmux plugin directory exists
+      file:
+        path: "{{ catppuccin_tmux_dest }}"
+        state: directory
+
+    - name: Ensure Fish themes directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/themes"
+        state: directory
+
+    - name: Ensure Fish completions directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/completions"
+        state: directory
+
+    - name: Ensure Pixi fish completion is installed
+      shell: "{{ pixi_bin }} completion --shell fish > {{ lookup('env', 'HOME') }}/.config/fish/completions/pixi.fish"
+      args:
+        executable: /bin/bash
+
+    - name: Ensure fish config is installed
+      copy:
+        src: "{{ playbook_dir }}/config.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/config.fish"
+        mode: "0644"
+
+    - name: Ensure Catppuccin fish theme is installed
+      git:
+        repo: https://github.com/catppuccin/fish.git
+        dest: "{{ catppuccin_fish_dest }}"
+        update: true
+
+    - name: Ensure Catppuccin fish theme files are linked
+      file:
+        src: "{{ catppuccin_fish_dest }}/themes/{{ item }}.theme"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item }}.theme"
+        state: link
+        force: true
+      loop:
+        - Catppuccin Frappe
+        - Catppuccin Macchiato
+        - Catppuccin Mocha
+
+    - name: Ensure Catppuccin fish theme is set (Latte is the light variant)
+      shell: |
+        rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/fish_frozen_theme.fish"
+        fish -c 'fish_config theme choose "Catppuccin Mocha"'
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+
+    - name: Ensure btop config directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ lookup('env', 'HOME') }}/.config/btop"
+        - "{{ lookup('env', 'HOME') }}/.config/btop/themes"
+
+    - name: Ensure Catppuccin btop theme is installed
+      git:
+        repo: https://github.com/catppuccin/btop.git
+        dest: "{{ catppuccin_btop_dest }}"
+        update: true
+
+    - name: Ensure Catppuccin btop Latte theme file is installed
+      shell: |
+        latte_file="$(find "{{ catppuccin_btop_dest }}/themes" -maxdepth 1 -type f -iname '*latte*.theme' | head -n 1)"
+        test -n "$latte_file"
+        cp "$latte_file" "{{ lookup('env', 'HOME') }}/.config/btop/themes/catppuccin_latte.theme"
+      args:
+        executable: /bin/bash
+
+    - name: Ensure btop uses Catppuccin Latte theme
+      lineinfile:
+        path: "{{ lookup('env', 'HOME') }}/.config/btop/btop.conf"
+        regexp: '^color_theme ='
+        line: 'color_theme = "catppuccin_latte.theme"'
+        create: true
+
+    - name: Ensure Catppuccin tmux plugin is installed
+      git:
+        repo: https://github.com/catppuccin/tmux.git
+        dest: "{{ catppuccin_tmux_dest }}"
+        version: "{{ catppuccin_tmux_version }}"
+        refspec: "+refs/tags/*:refs/tags/*"
+        force: true
+        update: true
+
+    - name: Ensure tmux config is installed
+      copy:
+        src: "{{ playbook_dir }}/tmux.conf"
+        dest: "{{ lookup('env', 'HOME') }}/.tmux.conf"
+        mode: "0644"
+
+    - name: Remove bootstrap temporary directory
+      file:
+        path: "{{ bootstrap_tmp_dir.path }}"
+        state: absent
+      when: codex_os == 'Linux'
