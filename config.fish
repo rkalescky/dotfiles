@@ -4,6 +4,11 @@ abbr -a vi nvim
 abbr -a vim nvim
 abbr -a ghsshu gh_ssh_bootstrap
 abbr -a ghsshd gh_ssh_cleanup
+
+if command -q squeue
+    abbr -a cq 'squeue --me'
+end
+
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -g GH_SSH_KEY_PATH "$HOME/.ssh/id_ed25519_gh"

@@ -31,6 +31,8 @@
         channel: conda-forge
       - spec: btop
         channel: conda-forge
+      - spec: nushell
+        channel: conda-forge
 
   tasks:
     - name: Ensure configured global packages are installed via Pixi
