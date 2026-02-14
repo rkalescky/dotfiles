@@ -5,6 +5,23 @@ PLAYBOOK_REL_PATH="${1:-bootstrap.yml}"
 PIXI_BIN="$HOME/.pixi/bin/pixi"
 BOOTSTRAP_DIR="$HOME/.dotfiles"
 BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/dotfiles.git}"
+PIXI_PATH_BLOCK_BEGIN="# >>> pixi-path >>>"
+PIXI_PATH_BLOCK_END="# <<< pixi-path <<<"
+
+upsert_managed_block() {
+  local file="$1"
+  local block="$2"
+  local tmp
+  tmp="$(mktemp)"
+  touch "$file"
+  awk -v begin="$PIXI_PATH_BLOCK_BEGIN" -v end="$PIXI_PATH_BLOCK_END" '
+    $0 == begin { skip = 1; next }
+    $0 == end { skip = 0; next }
+    !skip { print }
+  ' "$file" >"$tmp"
+  printf "%s\n%s\n%s\n" "$PIXI_PATH_BLOCK_BEGIN" "$block" "$PIXI_PATH_BLOCK_END" >>"$tmp"
+  mv "$tmp" "$file"
+}
 
 resolve_pixi_target() {
   local os arch
@@ -76,6 +93,10 @@ else
 fi
 
 export PATH="$HOME/.pixi/bin:$PATH"
+
+upsert_managed_block "$HOME/.profile" 'export PATH="$HOME/.pixi/bin:$PATH"'
+upsert_managed_block "$HOME/.bashrc" '[ -f "$HOME/.profile" ] && . "$HOME/.profile"'
+upsert_managed_block "$HOME/.zshrc" '[ -f "$HOME/.profile" ] && . "$HOME/.profile"'
 
 if ! command -v git >/dev/null 2>&1; then
   echo "git is required to sync bootstrap repository." >&2
