@@ -4,7 +4,7 @@ set -euo pipefail
 PLAYBOOK_REL_PATH="${1:-bootstrap.yml}"
 PIXI_BIN="$HOME/.pixi/bin/pixi"
 BOOTSTRAP_DIR="$HOME/.dotfiles"
-BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/bootstrap.git}"
+BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/dotfiles.git}"
 
 resolve_pixi_target() {
   local os arch
