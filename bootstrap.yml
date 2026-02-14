@@ -309,6 +309,17 @@
         dest: "{{ lookup('env', 'HOME') }}/.tmux.conf"
         mode: "0644"
 
+    - name: Ensure terminfo directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.terminfo"
+        state: directory
+
+    - name: Ensure terminfo entries are installed
+      copy:
+        src: "{{ playbook_dir }}/terminfo/"
+        dest: "{{ lookup('env', 'HOME') }}/.terminfo/"
+        mode: preserve
+
     - name: Remove bootstrap temporary directory
       file:
         path: "{{ bootstrap_tmp_dir.path }}"
