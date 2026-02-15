@@ -101,22 +101,26 @@
         - gh_linux_arch == ''
 
     - name: Get latest GitHub CLI release metadata
-      uri:
-        url: "{{ gh_release_api_url }}"
-        return_content: true
-      register: gh_release
+      command: "curl -fsSL {{ gh_release_api_url }}"
+      register: gh_release_raw
+      changed_when: false
+      when: codex_os == 'Linux'
+
+    - name: Parse GitHub CLI release metadata
+      set_fact:
+        gh_release: "{{ gh_release_raw.stdout | from_json }}"
       when: codex_os == 'Linux'
 
     - name: Set GitHub CLI release asset names
       set_fact:
-        gh_version: "{{ gh_release.json.tag_name | regex_replace('^v', '') }}"
-        gh_release_dir: "gh_{{ gh_release.json.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}"
-        gh_archive: "gh_{{ gh_release.json.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}.tar.gz"
+        gh_version: "{{ gh_release.tag_name | regex_replace('^v', '') }}"
+        gh_release_dir: "gh_{{ gh_release.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}"
+        gh_archive: "gh_{{ gh_release.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}.tar.gz"
       when: codex_os == 'Linux'
 
     - name: Set GitHub CLI archive digest from release metadata
       set_fact:
-        gh_archive_sha256: "{{ ((gh_release.json.assets | selectattr('name', 'equalto', gh_archive) | map(attribute='digest') | list | first) | default('')) | regex_replace('^sha256:', '') }}"
+        gh_archive_sha256: "{{ ((gh_release.assets | selectattr('name', 'equalto', gh_archive) | map(attribute='digest') | list | first) | default('')) | regex_replace('^sha256:', '') }}"
       when: codex_os == 'Linux'
 
     - name: Ensure GitHub CLI archive digest exists in release metadata
@@ -128,7 +132,7 @@
 
     - name: Download latest GitHub CLI Linux archive
       get_url:
-        url: "https://github.com/cli/cli/releases/download/{{ gh_release.json.tag_name }}/{{ gh_archive }}"
+        url: "https://github.com/cli/cli/releases/download/{{ gh_release.tag_name }}/{{ gh_archive }}"
         dest: "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}"
         mode: "0644"
       when: codex_os == 'Linux'
