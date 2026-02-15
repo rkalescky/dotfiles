@@ -131,10 +131,11 @@
         - gh_archive_sha256 == ''
 
     - name: Download latest GitHub CLI Linux archive
-      get_url:
-        url: "https://github.com/cli/cli/releases/download/{{ gh_release.tag_name }}/{{ gh_archive }}"
-        dest: "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}"
-        mode: "0644"
+      command: >
+        curl -fsSL
+        -o {{ bootstrap_tmp_dir.path }}/{{ gh_archive }}
+        https://github.com/cli/cli/releases/download/{{ gh_release.tag_name }}/{{ gh_archive }}
+      changed_when: true
       when: codex_os == 'Linux'
 
     - name: Verify GitHub CLI Linux archive checksum
@@ -167,10 +168,11 @@
       when: codex_os == 'Linux'
 
     - name: Download latest Codex Linux musl archive
-      get_url:
-        url: "{{ codex_linux_download_url }}"
-        dest: "{{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}"
-        mode: "0644"
+      command: >
+        curl -fsSL
+        -o {{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}
+        {{ codex_linux_download_url }}
+      changed_when: true
       when: codex_os == 'Linux'
 
     - name: Extract latest Codex Linux musl archive
