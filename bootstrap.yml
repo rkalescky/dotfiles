@@ -153,18 +153,20 @@
       when: codex_os == 'Linux'
 
     - name: Extract latest GitHub CLI Linux archive
-      unarchive:
-        src: "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}"
-        dest: "{{ bootstrap_tmp_dir.path }}"
-        remote_src: true
+      shell: >
+        tar -xzf {{ bootstrap_tmp_dir.path }}/{{ gh_archive }}
+        -C {{ bootstrap_tmp_dir.path }}
+      args:
+        executable: /bin/bash
       when: codex_os == 'Linux'
 
     - name: Install GitHub CLI binary to local bin on Linux
-      copy:
-        src: "{{ bootstrap_tmp_dir.path }}/{{ gh_release_dir }}/bin/gh"
-        dest: "{{ local_bin_dir }}/gh"
-        mode: "0755"
-        remote_src: true
+      shell: >
+        install -m 0755
+        {{ bootstrap_tmp_dir.path }}/{{ gh_release_dir }}/bin/gh
+        {{ local_bin_dir }}/gh
+      args:
+        executable: /bin/bash
       when: codex_os == 'Linux'
 
     - name: Download latest Codex Linux musl archive
@@ -176,18 +178,20 @@
       when: codex_os == 'Linux'
 
     - name: Extract latest Codex Linux musl archive
-      unarchive:
-        src: "{{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}"
-        dest: "{{ bootstrap_tmp_dir.path }}"
-        remote_src: true
+      shell: >
+        tar -xzf {{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}
+        -C {{ bootstrap_tmp_dir.path }}
+      args:
+        executable: /bin/bash
       when: codex_os == 'Linux'
 
     - name: Install Codex binary to local bin on Linux
-      copy:
-        src: "{{ bootstrap_tmp_dir.path }}/codex-{{ codex_linux_arch }}-unknown-linux-musl"
-        dest: "{{ local_bin_dir }}/codex"
-        mode: "0755"
-        remote_src: true
+      shell: >
+        install -m 0755
+        {{ bootstrap_tmp_dir.path }}/codex-{{ codex_linux_arch }}-unknown-linux-musl
+        {{ local_bin_dir }}/codex
+      args:
+        executable: /bin/bash
       when: codex_os == 'Linux'
 
     - name: Bootstrap Neovim config from kickstart.nvim
