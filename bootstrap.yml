@@ -33,6 +33,10 @@
         channel: conda-forge
       - spec: nushell
         channel: conda-forge
+      - spec: helix
+        channel: conda-forge
+      - spec: qsv
+        channel: conda-forge
 
   tasks:
     - name: Ensure configured global packages are installed via Pixi
@@ -224,6 +228,17 @@
         executable: /bin/bash
       environment:
         PATH: "{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+
+    - name: Ensure Helix config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/helix"
+        state: directory
+
+    - name: Ensure Helix config is installed
+      copy:
+        src: "{{ playbook_dir }}/helix/config.toml"
+        dest: "{{ lookup('env', 'HOME') }}/.config/helix/config.toml"
+        mode: "0644"
 
     - name: Ensure Catppuccin tmux plugin directory exists
       file:
