@@ -10,6 +10,7 @@
     catppuccin_tmux_dest: "{{ lookup('env', 'HOME') }}/.config/tmux/plugins/catppuccin/tmux"
     catppuccin_fish_dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin"
     catppuccin_btop_dest: "{{ lookup('env', 'HOME') }}/.config/btop/catppuccin"
+    catppuccin_ghostty_dest: "{{ lookup('env', 'HOME') }}/.config/ghostty/catppuccin"
     local_bin_dir: "{{ lookup('env', 'HOME') }}/.local/bin"
     codex_os: "{{ lookup('pipe', 'uname -s') }}"
     codex_arch: "{{ lookup('pipe', 'uname -m') }}"
@@ -320,6 +321,28 @@
         src: "{{ playbook_dir }}/tmux.conf"
         dest: "{{ lookup('env', 'HOME') }}/.tmux.conf"
         mode: "0644"
+
+    - name: Ensure ghostty config directory is installed
+      copy:
+        src: "{{ playbook_dir }}/ghostty/"
+        dest: "{{ lookup('env', 'HOME') }}/.config/ghostty/"
+        mode: preserve
+
+    - name: Ensure Ghostty themes directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/ghostty/themes"
+        state: directory
+
+    - name: Ensure Catppuccin Ghostty themes are installed
+      git:
+        repo: https://github.com/catppuccin/ghostty.git
+        dest: "{{ catppuccin_ghostty_dest }}"
+        update: true
+
+    - name: Ensure Catppuccin Ghostty theme files are installed
+      shell: cp -f "{{ catppuccin_ghostty_dest }}/themes/"*.conf "{{ lookup('env', 'HOME') }}/.config/ghostty/themes/"
+      args:
+        executable: /bin/bash
 
     - name: Ensure terminfo directory exists
       file:
