@@ -333,6 +333,17 @@
       environment:
         PATH: "{{ bootstrap_shell_path }}"
 
+    - name: Ensure Helix config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/helix"
+        state: directory
+
+    - name: Ensure Helix config is installed
+      copy:
+        src: "{{ playbook_dir }}/helix/config.toml"
+        dest: "{{ lookup('env', 'HOME') }}/.config/helix/config.toml"
+        mode: "0644"
+
     - name: Ensure Catppuccin tmux plugin directory exists
       file:
         path: "{{ catppuccin_tmux_dest }}"
@@ -348,10 +359,21 @@
         path: "{{ lookup('env', 'HOME') }}/.config/fish/completions"
         state: directory
 
+    - name: Ensure Fish conf.d directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d"
+        state: directory
+
     - name: Ensure Pixi fish completion is installed
       shell: "{{ pixi_bin }} completion --shell fish > {{ lookup('env', 'HOME') }}/.config/fish/completions/pixi.fish"
       args:
         executable: /bin/bash
+
+    - name: Ensure Fish path conf.d snippet is installed
+      copy:
+        src: "{{ playbook_dir }}/fish/conf.d/00-paths.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/00-paths.fish"
+        mode: "0644"
 
     - name: Ensure fish config is installed
       copy:

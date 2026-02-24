@@ -12,7 +12,6 @@ end
 set -gx EDITOR nvim
 set -gx VISUAL nvim
 set -g GH_SSH_KEY_PATH "$HOME/.ssh/id_ed25519_gh"
-fish_add_path -g "$HOME/.pixi/bin"
 
 function gh_ssh_bootstrap --description "Login to GitHub via SSH and upload local key"
 if not type -q gh
