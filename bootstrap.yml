@@ -13,32 +13,115 @@
     local_bin_dir: "{{ lookup('env', 'HOME') }}/.local/bin"
     codex_os: "{{ lookup('pipe', 'uname -s') }}"
     codex_arch: "{{ lookup('pipe', 'uname -m') }}"
+    brew_bin_prefix: "/opt/homebrew/bin:/usr/local/bin"
+    bootstrap_shell_path: "{{ brew_bin_prefix if codex_os == 'Darwin' else '' }}{{ ':' if codex_os == 'Darwin' else '' }}{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
     codex_linux_arch: "{{ 'x86_64' if codex_arch == 'x86_64' else ('aarch64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
     codex_linux_asset: "codex-{{ codex_linux_arch }}-unknown-linux-musl.tar.gz"
     codex_linux_download_url: "https://github.com/openai/codex/releases/latest/download/{{ codex_linux_asset }}"
     gh_linux_arch: "{{ 'amd64' if codex_arch == 'x86_64' else ('arm64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
     gh_release_api_url: "https://api.github.com/repos/cli/cli/releases/latest"
-    pixi_global_packages:
-      - spec: fish
-        channel: conda-forge
-      - spec: nvim
-        channel: conda-forge
-      - spec: tmux==3.6a
-        channel: conda-forge
-      - spec: ripgrep
-        channel: conda-forge
-      - spec: unzip
-        channel: conda-forge
-      - spec: btop
-        channel: conda-forge
-      - spec: nushell
-        channel: conda-forge
+    tools:
+      - name: codex
+        binary: codex
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: codex
+      - name: gh
+        binary: gh
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: gh
+      - name: fish
+        binary: fish
+        pixi:
+          spec: fish
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: fish
+      - name: neovim
+        binary: nvim
+        pixi:
+          spec: nvim
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: neovim
+      - name: tmux
+        binary: tmux
+        pixi:
+          spec: tmux==3.6a
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tmux
+      - name: helix
+        binary: hx
+        pixi:
+          spec: helix
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: helix
+      - name: ripgrep
+        binary: rg
+        pixi:
+          spec: ripgrep
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: ripgrep
+      - name: unzip
+        binary: unzip
+        pixi:
+          spec: unzip
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: unzip
+      - name: btop
+        binary: btop
+        pixi:
+          spec: btop
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: btop
+      - name: nushell
+        binary: nu
+        pixi:
+          spec: nushell
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: nushell
 
   tasks:
     - name: Ensure configured global packages are installed via Pixi
-      command: "{{ pixi_bin }} global install --channel {{ item.channel }} {{ item.spec }}"
+      command: "{{ pixi_bin }} global install --channel {{ item.pixi.channel }} {{ item.pixi.spec }}"
       register: pixi_global_install
-      loop: "{{ pixi_global_packages }}"
+      loop: "{{ tools | selectattr('pixi', 'defined') | list }}"
+      when: codex_os != 'Darwin' or (item.darwin.install.source | default('pixi')) != 'brew'
       changed_when: "'already installed' not in (pixi_global_install.stdout | lower)"
 
     - name: Ensure local bin directory exists
@@ -60,30 +143,45 @@
         dest: "{{ lookup('env', 'HOME') }}/.gitconfig"
         mode: "0644"
 
-    - name: Ensure Codex is installed with Homebrew on macOS
-      shell: brew install --cask codex
-      args:
-        executable: /bin/bash
-      environment:
-        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
-      when: codex_os == 'Darwin'
-
-    - name: Ensure GitHub CLI is installed with Homebrew on macOS
-      shell: brew install gh
-      args:
-        executable: /bin/bash
-      environment:
-        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
-      when: codex_os == 'Darwin'
-
-    - name: Ensure macOS Homebrew Codex is linked in local bin
+    - name: Ensure macOS Homebrew tools are installed
       shell: |
-        codex_path="$(command -v codex)"
-        ln -sf "$codex_path" "{{ local_bin_dir }}/codex"
+        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
+          brew install --cask "{{ item.darwin.install.package }}"
+        else
+          brew install "{{ item.darwin.install.package }}"
+        fi
       args:
         executable: /bin/bash
       environment:
-        PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
+      when: codex_os == 'Darwin'
+
+    - name: Verify macOS Homebrew tools are installed and discoverable
+      shell: |
+        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
+          brew list --cask "{{ item.darwin.install.package }}" >/dev/null
+        else
+          brew list --formula "{{ item.darwin.install.package }}" >/dev/null
+        fi
+        PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}"
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      changed_when: false
+      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
+      when: codex_os == 'Darwin'
+
+    - name: Ensure macOS Homebrew tools are linked in local bin
+      shell: |
+        tool_path="$(PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}")"
+        ln -sf "$tool_path" "{{ local_bin_dir }}/{{ item.binary }}"
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
       when: codex_os == 'Darwin'
 
     - name: Ensure Linux architecture is supported for Codex musl package
@@ -223,7 +321,7 @@
       args:
         executable: /bin/bash
       environment:
-        PATH: "{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+        PATH: "{{ bootstrap_shell_path }}"
 
     - name: Ensure Catppuccin tmux plugin directory exists
       file:
@@ -275,7 +373,7 @@
       args:
         executable: /bin/bash
       environment:
-        PATH: "{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+        PATH: "{{ bootstrap_shell_path }}"
 
     - name: Ensure btop config directories exist
       file:
