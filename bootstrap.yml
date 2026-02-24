@@ -85,6 +85,16 @@
             source: brew
             kind: formula
             package: ripgrep
+      - name: qsv
+        binary: qsv
+        pixi:
+          spec: qsv
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: qsv
       - name: unzip
         binary: unzip
         pixi:
