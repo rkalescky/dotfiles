@@ -95,7 +95,7 @@ fi
 export PATH="$HOME/.pixi/bin:$PATH"
 
 upsert_managed_block "$HOME/.profile" 'export PATH="$HOME/.pixi/bin:$PATH"'
-upsert_managed_block "$HOME/.bashrc" '[ -f "$HOME/.profile" ] && . "$HOME/.profile"'
+upsert_managed_block "$HOME/.bashrc" 'export PATH="$HOME/.pixi/bin:$PATH"'
 upsert_managed_block "$HOME/.zshrc" '[ -f "$HOME/.profile" ] && . "$HOME/.profile"'
 
 if ! command -v git >/dev/null 2>&1; then

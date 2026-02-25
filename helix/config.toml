@@ -1,0 +1,10 @@
+theme = "catppuccin_latte"
+
+[editor]
+true-color = true
+text-width = 80
+rulers = [80]
+
+[editor.soft-wrap]
+enable = true
+wrap-at-text-width = true
