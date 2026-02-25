@@ -35,6 +35,20 @@
             source: brew
             kind: formula
             package: gh
+      - name: lima
+        binary: limactl
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: lima
+      - name: lima-additional-guestagents
+        binary: limactl
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: lima-additional-guestagents
       - name: fish
         binary: fish
         pixi:
@@ -90,6 +104,8 @@
         pixi:
           spec: qsv
           channel: conda-forge
+          linux_arches:
+            - x86_64
         darwin:
           install:
             source: brew
@@ -131,7 +147,9 @@
       command: "{{ pixi_bin }} global install --channel {{ item.pixi.channel }} {{ item.pixi.spec }}"
       register: pixi_global_install
       loop: "{{ tools | selectattr('pixi', 'defined') | list }}"
-      when: codex_os != 'Darwin' or (item.darwin.install.source | default('pixi')) != 'brew'
+      when:
+        - codex_os != 'Darwin' or (item.darwin.install.source | default('pixi')) != 'brew'
+        - codex_os != 'Linux' or codex_arch in (item.pixi.linux_arches | default(['x86_64', 'aarch64', 'arm64']))
       changed_when: "'already installed' not in (pixi_global_install.stdout | lower)"
 
     - name: Ensure local bin directory exists
