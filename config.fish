@@ -4,6 +4,7 @@ abbr -a vi nvim
 abbr -a vim nvim
 abbr -a ghsshu gh_ssh_bootstrap
 abbr -a ghsshd gh_ssh_cleanup
+abbr -a bpriv bootstrap_private
 
 if command -q squeue
     abbr -a cq 'squeue --me'
@@ -65,6 +66,43 @@ end
 end
 
 gh auth logout -h github.com
+end
+
+function bootstrap_private --description "Clone private dotfiles and rerun bootstrap"
+set -l private_repo_dir "$HOME/.dotfiles_private"
+set -l private_repo_url "git@github.com:rkalescky/dotfiles_private.git"
+if set -q PRIVATE_BOOTSTRAP_REPO_URL
+set private_repo_url "$PRIVATE_BOOTSTRAP_REPO_URL"
+end
+set -l public_bootstrap "$HOME/.dotfiles/bootstrap.sh"
+
+if not test -x "$public_bootstrap"
+echo "Public bootstrap not found at $public_bootstrap"
+return 1
+end
+
+if test -d "$private_repo_dir/.git"
+echo "Private dotfiles already present at $private_repo_dir"
+"$public_bootstrap"
+return $status
+end
+
+if not type -q gh
+echo "gh is not installed"
+return 1
+end
+
+if not git ls-remote "$private_repo_url" >/dev/null 2>&1
+gh_ssh_bootstrap
+or return $status
+git ls-remote "$private_repo_url" >/dev/null 2>&1
+or return 1
+end
+
+git clone "$private_repo_url" "$private_repo_dir"
+or return $status
+
+"$public_bootstrap"
 end
 
 end

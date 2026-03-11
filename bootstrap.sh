@@ -5,6 +5,10 @@ PLAYBOOK_REL_PATH="${1:-bootstrap.yml}"
 PIXI_BIN="$HOME/.pixi/bin/pixi"
 BOOTSTRAP_DIR="$HOME/.dotfiles"
 BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/dotfiles.git}"
+PRIVATE_BOOTSTRAP_DIR="${PRIVATE_BOOTSTRAP_DIR:-$HOME/.dotfiles_private}"
+PRIVATE_BOOTSTRAP_REPO_URL="${PRIVATE_BOOTSTRAP_REPO_URL:-git@github.com:rkalescky/dotfiles_private.git}"
+PRIVATE_BOOTSTRAP_SCRIPT="${PRIVATE_BOOTSTRAP_DIR}/bootstrap.sh"
+PRIVATE_PLAYBOOK_PATH="${PRIVATE_BOOTSTRAP_DIR}/bootstrap.yml"
 PIXI_PATH_BLOCK_BEGIN="# >>> pixi-path >>>"
 PIXI_PATH_BLOCK_END="# <<< pixi-path <<<"
 
@@ -122,3 +126,13 @@ fi
 "$PIXI_BIN" global install --channel conda-forge ansible
 
 "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i localhost, -c local "$PLAYBOOK_PATH"
+
+export PUBLIC_DOTFILES_DIR="$BOOTSTRAP_DIR"
+export PRIVATE_DOTFILES_DIR="$PRIVATE_BOOTSTRAP_DIR"
+export PRIVATE_BOOTSTRAP_REPO_URL
+
+if [[ -x "$PRIVATE_BOOTSTRAP_SCRIPT" ]]; then
+  "$PRIVATE_BOOTSTRAP_SCRIPT"
+elif [[ -f "$PRIVATE_PLAYBOOK_PATH" ]]; then
+  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i localhost, -c local "$PRIVATE_PLAYBOOK_PATH"
+fi
