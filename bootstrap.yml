@@ -103,6 +103,26 @@
             source: brew
             kind: formula
             package: ripgrep
+      - name: tree
+        binary: tree
+        pixi:
+          spec: tree
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tree
+      - name: fd
+        binary: fd
+        pixi:
+          spec: fd-find
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: fd
       - name: qsv
         binary: qsv
         pixi:
