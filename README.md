@@ -8,6 +8,12 @@ curl -fsSL https://raw.githubusercontent.com/rkalescky/dotfiles/main/bootstrap.s
 
 This installs/updates Pixi, syncs this repo to `~/.dotfiles`, and runs `bootstrap.yml`.
 
+For forks, set `BOOTSTRAP_REPO_URL` to your public repo URL before running bootstrap. If your private repo lives somewhere else, set `PRIVATE_BOOTSTRAP_REPO_URL` as well.
+
+If `~/.dotfiles_private/bootstrap.sh` exists, the public bootstrap runs it afterward. If not, but `~/.dotfiles_private/bootstrap.yml` exists, the public bootstrap runs that playbook instead. If neither exists, bootstrap completes with only the public repo.
+
+For first-time private setup, run `bootstrap_private` from Fish after bootstrap completes. It will use GitHub SSH bootstrap if needed, clone `PRIVATE_BOOTSTRAP_REPO_URL` if set or else `git@github.com:rkalescky/dotfiles_private.git` into `~/.dotfiles_private`, and rerun the public bootstrap.
+
 ## Lima VMs
 
 Use the dedicated playbook target to configure the Lima VM set.
