@@ -11,10 +11,14 @@
     catppuccin_fish_dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin"
     catppuccin_btop_dest: "{{ lookup('env', 'HOME') }}/.config/btop/catppuccin"
     local_bin_dir: "{{ lookup('env', 'HOME') }}/.local/bin"
+    cargo_home: "{{ lookup('env', 'HOME') }}/.cargo"
+    rustup_home: "{{ lookup('env', 'HOME') }}/.rustup"
+    rustup_bin: "{{ cargo_home }}/bin/rustup"
+    rustup_install_script_url: "https://sh.rustup.rs"
     codex_os: "{{ lookup('pipe', 'uname -s') }}"
     codex_arch: "{{ lookup('pipe', 'uname -m') }}"
     brew_bin_prefix: "/opt/homebrew/bin:/usr/local/bin"
-    bootstrap_shell_path: "{{ brew_bin_prefix if codex_os == 'Darwin' else '' }}{{ ':' if codex_os == 'Darwin' else '' }}{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+    bootstrap_shell_path: "{{ brew_bin_prefix if codex_os == 'Darwin' else '' }}{{ ':' if codex_os == 'Darwin' else '' }}{{ cargo_home }}/bin:{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
     codex_linux_arch: "{{ 'x86_64' if codex_arch == 'x86_64' else ('aarch64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
     codex_linux_asset: "codex-{{ codex_linux_arch }}-unknown-linux-musl.tar.gz"
     codex_linux_download_url: "https://github.com/openai/codex/releases/latest/download/{{ codex_linux_asset }}"
@@ -163,13 +167,96 @@
         prefix: bootstrap-
         path: /tmp
       register: bootstrap_tmp_dir
-      when: codex_os == 'Linux'
 
     - name: Ensure global Git config is installed
       copy:
         src: "{{ playbook_dir }}/gitconfig"
         dest: "{{ lookup('env', 'HOME') }}/.gitconfig"
         mode: "0644"
+
+    - name: Check whether rustup is already installed
+      stat:
+        path: "{{ rustup_bin }}"
+      register: rustup_stat
+
+    - name: Download rustup installer
+      get_url:
+        url: "{{ rustup_install_script_url }}"
+        dest: "{{ bootstrap_tmp_dir.path }}/rustup-init.sh"
+        mode: "0755"
+      when: not rustup_stat.stat.exists
+
+    - name: Install rustup and the stable toolchain
+      command:
+        argv:
+          - sh
+          - "{{ bootstrap_tmp_dir.path }}/rustup-init.sh"
+          - -y
+          - --default-toolchain
+          - stable
+          - --profile
+          - default
+          - --no-modify-path
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+      when: not rustup_stat.stat.exists
+
+    - name: Ensure the stable Rust toolchain is installed and current
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - update
+          - stable
+      register: rustup_update_stable
+      changed_when: "'unchanged' not in (rustup_update_stable.stdout | lower)"
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Check the active rustup toolchain
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - show
+          - active-toolchain
+      register: rustup_active_toolchain
+      changed_when: false
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure stable is the default Rust toolchain
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - default
+          - stable
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+      when: not (rustup_active_toolchain.stdout | lower).startswith('stable')
+
+    - name: Verify rustup, cargo, and rustc are discoverable
+      shell: |
+        set -euo pipefail
+        command -v rustup
+        command -v cargo
+        command -v rustc
+        rustup toolchain list | grep -q '^stable'
+        cargo --version
+        rustc --version
+      args:
+        executable: /bin/bash
+      changed_when: false
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
 
     - name: Ensure macOS Homebrew tools are installed
       shell: |
@@ -490,4 +577,3 @@
       file:
         path: "{{ bootstrap_tmp_dir.path }}"
         state: absent
-      when: codex_os == 'Linux'
