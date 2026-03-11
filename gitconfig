@@ -4,8 +4,8 @@
 [include]
     path = ~/.gitconfig.local
 
-[includeIf "gitdir:~/work/"]
+[includeIf "gitdir:~/projects/work/"]
     path = ~/.gitconfig-work
 
-[includeIf "gitdir:~/personal/"]
+[includeIf "gitdir:~/projects/personal/"]
     path = ~/.gitconfig-personal
