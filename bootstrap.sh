@@ -7,8 +7,7 @@ BOOTSTRAP_DIR="$HOME/.dotfiles"
 BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/dotfiles.git}"
 PRIVATE_BOOTSTRAP_DIR="${PRIVATE_BOOTSTRAP_DIR:-$HOME/.dotfiles_private}"
 PRIVATE_BOOTSTRAP_REPO_URL="${PRIVATE_BOOTSTRAP_REPO_URL:-git@github.com:rkalescky/dotfiles_private.git}"
-PRIVATE_BOOTSTRAP_SCRIPT="${PRIVATE_BOOTSTRAP_DIR}/bootstrap.sh"
-PRIVATE_PLAYBOOK_PATH="${PRIVATE_BOOTSTRAP_DIR}/bootstrap.yml"
+PRIVATE_BOOTSTRAP_NU="${PRIVATE_BOOTSTRAP_DIR}/bootstrap.nu"
 PIXI_PATH_BLOCK_BEGIN="# >>> pixi-path >>>"
 PIXI_PATH_BLOCK_END="# <<< pixi-path <<<"
 
@@ -131,8 +130,6 @@ export PUBLIC_DOTFILES_DIR="$BOOTSTRAP_DIR"
 export PRIVATE_DOTFILES_DIR="$PRIVATE_BOOTSTRAP_DIR"
 export PRIVATE_BOOTSTRAP_REPO_URL
 
-if [[ -x "$PRIVATE_BOOTSTRAP_SCRIPT" ]]; then
-  "$PRIVATE_BOOTSTRAP_SCRIPT"
-elif [[ -f "$PRIVATE_PLAYBOOK_PATH" ]]; then
-  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i localhost, -c local "$PRIVATE_PLAYBOOK_PATH"
+if [[ -f "$PRIVATE_BOOTSTRAP_NU" ]]; then
+  nu "$PRIVATE_BOOTSTRAP_NU"
 fi
