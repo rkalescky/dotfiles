@@ -125,6 +125,16 @@
             source: brew
             kind: formula
             package: fd
+      - name: git-lfs
+        binary: git-lfs
+        pixi:
+          spec: git-lfs
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: git-lfs
       - name: qsv
         binary: qsv
         pixi:
@@ -354,6 +364,16 @@
       when:
         - codex_os == 'Linux'
         - codex_linux_arch == ''
+
+    - name: Ensure Git LFS is initialized for the current user
+      command:
+        argv:
+          - git
+          - lfs
+          - install
+      changed_when: false
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
 
     - name: Ensure Linux architecture is supported for GitHub CLI release package
       fail:
