@@ -561,25 +561,50 @@
         dest: "{{ catppuccin_fish_dest }}"
         update: true
 
+    - name: Find Catppuccin fish theme files
+      find:
+        paths: "{{ catppuccin_fish_dest }}/themes"
+        recurse: true
+        file_type: file
+        patterns:
+          - "*frappe*.theme"
+          - "*macchiato*.theme"
+          - "*mocha*.theme"
+      register: catppuccin_fish_theme_files
+
     - name: Ensure Catppuccin fish theme files are linked
       file:
-        src: "{{ catppuccin_fish_dest }}/themes/{{ item }}.theme"
-        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item }}.theme"
+        src: "{{ item.path }}"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item.path | basename }}"
         state: link
         force: true
-      loop:
-        - Catppuccin Frappe
-        - Catppuccin Macchiato
-        - Catppuccin Mocha
+        follow: false
+      loop: "{{ catppuccin_fish_theme_files.files }}"
+      loop_control:
+        label: "{{ item.path | basename }}"
 
-    - name: Ensure Catppuccin fish theme is set (Latte is the light variant)
+    - name: Detect available Catppuccin Mocha fish theme name
       shell: |
-        rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/fish_frozen_theme.fish"
-        fish -c 'fish_config theme choose "Catppuccin Mocha"'
+        fish -c 'fish_config theme list' | awk '
+          /^Catppuccin Mocha$/ { print; found=1; exit }
+          /^catppuccin-mocha$/ { print; found=1; exit }
+          END { if (!found) exit 1 }'
       args:
         executable: /bin/bash
       environment:
         PATH: "{{ bootstrap_shell_path }}"
+      register: catppuccin_fish_theme_name
+      changed_when: false
+
+    - name: Ensure Catppuccin fish theme is set (Latte is the light variant)
+      shell: |
+        rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/fish_frozen_theme.fish"
+        fish -c 'fish_config theme choose "{{ catppuccin_fish_theme_name.stdout | trim }}"'
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+      changed_when: false
 
     - name: Ensure btop config directories exist
       file:
