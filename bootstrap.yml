@@ -575,6 +575,24 @@
         dest: "{{ lookup('env', 'HOME') }}/.config/helix/config.toml"
         mode: "0644"
 
+    - name: Ensure Codex config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.codex"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure Codex shared defaults are merged into local config
+      command:
+        argv:
+          - python3
+          - "{{ playbook_dir }}/codex/sync_config.py"
+          - --source
+          - "{{ playbook_dir }}/codex/config.toml"
+          - --dest
+          - "{{ lookup('env', 'HOME') }}/.codex/config.toml"
+      register: codex_config_sync
+      changed_when: "'changed=true' in codex_config_sync.stdout"
+
     - name: Ensure Catppuccin tmux plugin directory exists
       file:
         path: "{{ catppuccin_tmux_dest }}"
@@ -618,45 +636,55 @@
         dest: "{{ catppuccin_fish_dest }}"
         update: true
 
-    - name: Find Catppuccin fish theme files
-      find:
-        paths: "{{ catppuccin_fish_dest }}/themes"
-        recurse: true
-        file_type: file
-        patterns:
-          - "*frappe*.theme"
-          - "*macchiato*.theme"
-          - "*mocha*.theme"
-      register: catppuccin_fish_theme_files
+    - name: Check for Catppuccin Latte static fish theme file
+      stat:
+        path: "{{ catppuccin_fish_dest }}/themes/static/catppuccin-latte.theme"
+      register: catppuccin_fish_theme_static_latte
 
-    - name: Ensure Catppuccin fish theme files are linked
+    - name: Check for Catppuccin Latte fish theme file
+      stat:
+        path: "{{ catppuccin_fish_dest }}/themes/catppuccin-latte.theme"
+      register: catppuccin_fish_theme_latte
+
+    - name: Ensure Catppuccin Latte fish theme file exists
+      fail:
+        msg: >-
+          Could not find catppuccin-latte.theme in {{ catppuccin_fish_dest }}/themes/static
+          or {{ catppuccin_fish_dest }}/themes.
+      when:
+        - not catppuccin_fish_theme_static_latte.stat.exists
+        - not catppuccin_fish_theme_latte.stat.exists
+
+    - name: Remove legacy Catppuccin fish theme links
       file:
-        src: "{{ item.path }}"
-        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item.path | basename }}"
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item }}"
+        state: absent
+      loop:
+        - Catppuccin Latte.theme
+        - Catppuccin Frappe.theme
+        - Catppuccin Macchiato.theme
+        - Catppuccin Mocha.theme
+        - catppuccin-frappe.theme
+        - catppuccin-macchiato.theme
+        - catppuccin-mocha.theme
+
+    - name: Ensure Catppuccin Latte fish theme file is linked
+      file:
+        src: >-
+          {{
+            (catppuccin_fish_dest ~ '/themes/static/catppuccin-latte.theme')
+            if catppuccin_fish_theme_static_latte.stat.exists
+            else (catppuccin_fish_dest ~ '/themes/catppuccin-latte.theme')
+          }}
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin-latte.theme"
         state: link
         force: true
         follow: false
-      loop: "{{ catppuccin_fish_theme_files.files }}"
-      loop_control:
-        label: "{{ item.path | basename }}"
 
-    - name: Detect available Catppuccin Mocha fish theme name
-      shell: |
-        fish -c 'fish_config theme list' | awk '
-          /^Catppuccin Mocha$/ { print; found=1; exit }
-          /^catppuccin-mocha$/ { print; found=1; exit }
-          END { if (!found) exit 1 }'
-      args:
-        executable: /bin/bash
-      environment:
-        PATH: "{{ bootstrap_shell_path }}"
-      register: catppuccin_fish_theme_name
-      changed_when: false
-
-    - name: Ensure Catppuccin fish theme is set (Latte is the light variant)
+    - name: Ensure Catppuccin fish theme is set to Latte
       shell: |
         rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/fish_frozen_theme.fish"
-        fish -c 'fish_config theme choose "{{ catppuccin_fish_theme_name.stdout | trim }}"'
+        fish -c 'fish_config theme choose "catppuccin-latte"'
       args:
         executable: /bin/bash
       environment:

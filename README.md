@@ -14,6 +14,10 @@ If `~/.dotfiles_private/bootstrap.nu` exists, the public bootstrap runs it after
 
 For first-time private setup, run `bootstrap_private` from Fish after bootstrap completes. It will use GitHub SSH bootstrap if needed, clone `PRIVATE_BOOTSTRAP_REPO_URL` if set or else `git@github.com:rkalescky/dotfiles_private.git` into `~/.dotfiles_private`, and rerun the public bootstrap.
 
+## Codex config
+
+`codex/config.toml` is the shared, machine-agnostic Codex defaults file. Bootstrap merges those defaults into `~/.codex/config.toml` instead of copying or symlinking the whole file, so local Codex-managed state such as trusted projects and notices survives across runs.
+
 ## Lima VMs
 
 Use the dedicated playbook target to configure the Lima VM set.
