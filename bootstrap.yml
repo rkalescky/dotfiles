@@ -584,7 +584,7 @@
     - name: Ensure Codex shared defaults are merged into local config
       command:
         argv:
-          - python3
+          - "{{ ansible_playbook_python }}"
           - "{{ playbook_dir }}/codex/sync_config.py"
           - --source
           - "{{ playbook_dir }}/codex/config.toml"
