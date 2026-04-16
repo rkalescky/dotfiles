@@ -274,17 +274,19 @@
       register: rustup_stat
 
     - name: Download rustup-init binary
-      get_url:
-        url: "{{ rustup_download_url }}"
-        dest: "{{ bootstrap_tmp_dir.path }}/rustup-init"
-        mode: "0755"
+      shell: >
+        curl -fsSL {{ rustup_download_url }} -o {{ bootstrap_tmp_dir.path }}/rustup-init &&
+        chmod 0755 {{ bootstrap_tmp_dir.path }}/rustup-init
+      args:
+        executable: /bin/bash
       when: not rustup_stat.stat.exists
 
     - name: Download rustup-init checksum
-      get_url:
-        url: "{{ rustup_download_sha256_url }}"
-        dest: "{{ bootstrap_tmp_dir.path }}/rustup-init.sha256"
-        mode: "0644"
+      shell: >
+        curl -fsSL {{ rustup_download_sha256_url }} -o {{ bootstrap_tmp_dir.path }}/rustup-init.sha256 &&
+        chmod 0644 {{ bootstrap_tmp_dir.path }}/rustup-init.sha256
+      args:
+        executable: /bin/bash
       when: not rustup_stat.stat.exists
 
     - name: Verify rustup-init checksum
