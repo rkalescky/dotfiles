@@ -559,6 +559,12 @@
         search_string: '{ "catppuccin/nvim", name = "catppuccin", priority = 1000 },'
         line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
 
+    - name: Ensure kickstart uses current nvim-treesitter install API
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "require\\('nvim-treesitter'\\)\\.install\\(filetypes\\)"
+        replace: "require('nvim-treesitter.install').ensure_installed(filetypes)"
+
     - name: Sync Neovim plugins headlessly
       shell: nvim --headless "+Lazy! sync" +qa
       args:
