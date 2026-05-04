@@ -4,6 +4,7 @@ set -euo pipefail
 PLAYBOOK_REL_PATH="${1:-bootstrap.yml}"
 PIXI_BIN="$HOME/.pixi/bin/pixi"
 BOOTSTRAP_DIR="$HOME/.dotfiles"
+INVENTORY_PATH="$BOOTSTRAP_DIR/inventory/localhost.yml"
 BOOTSTRAP_REPO_URL="${BOOTSTRAP_REPO_URL:-https://github.com/rkalescky/dotfiles.git}"
 PRIVATE_BOOTSTRAP_DIR="${PRIVATE_BOOTSTRAP_DIR:-$HOME/.dotfiles_private}"
 PRIVATE_BOOTSTRAP_REPO_URL="${PRIVATE_BOOTSTRAP_REPO_URL:-git@github.com:rkalescky/dotfiles_private.git}"
@@ -122,9 +123,14 @@ if [[ ! -f "$PLAYBOOK_PATH" ]]; then
   exit 1
 fi
 
+if [[ ! -f "$INVENTORY_PATH" ]]; then
+  echo "Inventory not found: $INVENTORY_PATH" >&2
+  exit 1
+fi
+
 "$PIXI_BIN" global install --channel conda-forge ansible
 
-"$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i localhost, -c local "$PLAYBOOK_PATH"
+"$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH"
 
 export PUBLIC_DOTFILES_DIR="$BOOTSTRAP_DIR"
 export PRIVATE_DOTFILES_DIR="$PRIVATE_BOOTSTRAP_DIR"
