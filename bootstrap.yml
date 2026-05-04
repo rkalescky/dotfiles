@@ -76,6 +76,16 @@
             source: brew
             kind: formula
             package: neovim
+      - name: tree-sitter-cli
+        binary: tree-sitter
+        pixi:
+          spec: "tree-sitter-cli>=0.26.1"
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tree-sitter-cli
       - name: tmux
         binary: tmux
         pixi:
@@ -417,6 +427,23 @@
       loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
       when: codex_os == 'Darwin'
 
+    - name: Verify tree-sitter CLI is new enough for nvim-treesitter
+      shell: |
+        set -euo pipefail
+        command -v tree-sitter
+        version="$(tree-sitter --version | sed -E 's/.* ([0-9]+)\.([0-9]+)\.([0-9]+).*/\1.\2.\3/')"
+        IFS=. read -r major minor patch <<< "$version"
+        if (( major > 0 || minor > 26 || (minor == 26 && patch >= 1) )); then
+          exit 0
+        fi
+        echo "tree-sitter CLI $version is older than required 0.26.1" >&2
+        exit 1
+      args:
+        executable: /bin/bash
+      changed_when: false
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
     - name: Ensure Linux architecture is supported for Codex musl package
       fail:
         msg: "Unsupported Linux architecture for Codex musl release: {{ codex_arch }}"
@@ -559,16 +586,36 @@
         search_string: '{ "catppuccin/nvim", name = "catppuccin", priority = 1000 },'
         line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
 
+    - name: Ensure kickstart declares nvim-treesitter parser registry dependency
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(    'nvim-treesitter/nvim-treesitter',\\n)(?!    dependencies = \\{ 'neovim-treesitter/treesitter-parser-registry' \\},\\n)"
+        replace: "\\1    dependencies = { 'neovim-treesitter/treesitter-parser-registry' },\\n"
+
+    - name: Ensure kickstart uses current nvim-treesitter lazy spec
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(    'nvim-treesitter/nvim-treesitter',\\n    dependencies = \\{ 'neovim-treesitter/treesitter-parser-registry' \\},\\n)(?:    lazy = false,\\n)?(?:    build = ':TSUpdate',\\n)?(?:    branch = 'main',\\n)?"
+        replace: "\\1    lazy = false,\\n    build = ':TSUpdate',\\n    branch = 'main',\\n"
+
     - name: Ensure kickstart uses current nvim-treesitter install API
       replace:
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
-        regexp: "require\\('nvim-treesitter'\\)\\.install\\(filetypes\\)"
-        replace: "require('nvim-treesitter.install').ensure_installed(filetypes)"
+        regexp: "require\\('nvim-treesitter\\.install'\\)\\.ensure_installed\\(([^)]+)\\)"
+        replace: "require('nvim-treesitter').install(\\1)"
 
     - name: Sync Neovim plugins headlessly
       shell: nvim --headless "+Lazy! sync" +qa
       args:
         executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Check nvim-treesitter health
+      shell: nvim --headless "+checkhealth nvim-treesitter" +qa
+      args:
+        executable: /bin/bash
+      changed_when: false
       environment:
         PATH: "{{ bootstrap_shell_path }}"
 
