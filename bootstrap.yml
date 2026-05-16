@@ -574,17 +574,41 @@
         regexp: "'lua_ls', -- Lua Language server"
         replace: "'lua-language-server', -- Lua Language server"
 
-    - name: Ensure kickstart colorscheme plugin is catppuccin
-      replace:
-        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
-        regexp: "(?s)\\{ -- You can easily change to a different colorscheme\\..*?\\n  \\},"
-        replace: '  { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
-
-    - name: Ensure existing one-line catppuccin entry uses latte config
+    - name: Remove stale catppuccin lazy-spec line from kickstart config
       lineinfile:
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
-        search_string: '{ "catppuccin/nvim", name = "catppuccin", priority = 1000 },'
+        state: absent
         line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
+
+    - name: Ensure kickstart installs catppuccin instead of tokyonight
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "vim\\.pack\\.add \\{ gh 'folke/tokyonight\\.nvim' \\}"
+        replace: "vim.pack.add { gh 'catppuccin/nvim' }"
+
+    - name: Ensure kickstart configures catppuccin latte
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?s)  ---@diagnostic disable-next-line: missing-fields\\n  require\\('tokyonight'\\)\\.setup \\{\\n.*?\\n  \\}"
+        replace: |-
+          require('catppuccin').setup {
+            flavour = 'latte',
+            styles = {
+              comments = {},
+            },
+          }
+
+    - name: Ensure kickstart loads catppuccin latte
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?m)^  vim\\.cmd\\.colorscheme 'tokyonight-night'$"
+        replace: "  vim.cmd.colorscheme 'catppuccin-latte'"
+
+    - name: Ensure kickstart colorscheme comment matches catppuccin
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?s)  -- Like many other themes, this one has different styles, and you could load\\n  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'\\."
+        replace: "  -- Catppuccin supports multiple flavours such as latte, frappe, macchiato, and mocha."
 
     - name: Ensure kickstart declares nvim-treesitter parser registry dependency
       replace:
