@@ -580,6 +580,29 @@
         state: absent
         line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
 
+    - name: Ensure kickstart declares catppuccin lazy spec
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically\\n)(?!\\n  \\{ -- Catppuccin theme)"
+        replace: |-
+          \1
+            { -- Catppuccin theme
+              'catppuccin/nvim',
+              name = 'catppuccin',
+              lazy = false,
+              priority = 1000,
+              opts = {
+                flavour = 'latte',
+                styles = {
+                  comments = {},
+                },
+              },
+              config = function(_, opts)
+                require('catppuccin').setup(opts)
+                vim.cmd.colorscheme 'catppuccin-latte'
+              end,
+            },
+
     - name: Ensure kickstart installs catppuccin instead of tokyonight
       replace:
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
@@ -627,6 +650,52 @@
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
         regexp: "require\\('nvim-treesitter\\.install'\\)\\.ensure_installed\\(([^)]+)\\)"
         replace: "require('nvim-treesitter').install(\\1)"
+
+    - name: Ensure kickstart configures nvim-treesitter main branch API
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: |-
+          (?s)    main = 'nvim-treesitter\.configs', -- Sets main module to use for opts\n    -- \[\[ Configure Treesitter \]\] See `:help nvim-treesitter`\n    opts = \{\n      ensure_installed = \{ ([^}]*) \},\n      -- Autoinstall languages that are not installed\n      auto_install = true,\n      highlight = \{\n        enable = true,\n        -- Some languages depend on vim's regex highlighting system \(such as Ruby\) for indent rules\.\n        --  If you are experiencing weird indenting issues, add the language to\n        --  the list of additional_vim_regex_highlighting and disabled languages for indent\.\n        additional_vim_regex_highlighting = \{ 'ruby' \},\n      \},\n      indent = \{ enable = true, disable = \{ 'ruby' \} \},\n    \},
+        replace: |-
+          -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+          config = function()
+            local ensure_installed = { \1 }
+            local treesitter = require 'nvim-treesitter'
+
+            treesitter.install(ensure_installed)
+
+            vim.api.nvim_create_autocmd('FileType', {
+              pattern = '*',
+              callback = function(args)
+                local lang = vim.treesitter.language.get_lang(vim.bo[args.buf].filetype)
+                if not lang or not vim.list_contains(ensure_installed, lang) then
+                  return
+                end
+
+                pcall(vim.treesitter.start, args.buf, lang)
+                if lang ~= 'ruby' then
+                  vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+                end
+              end,
+            })
+          end,
+
+    - name: Read rewritten Neovim config
+      slurp:
+        src: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+      register: nvim_init_lua
+
+    - name: Ensure Neovim Kickstart rewrites were applied
+      assert:
+        that:
+          - "'catppuccin/nvim' in (nvim_init_lua.content | b64decode)"
+          - "'catppuccin-latte' in (nvim_init_lua.content | b64decode)"
+          - "'folke/tokyonight.nvim' not in (nvim_init_lua.content | b64decode)"
+          - "'nvim-treesitter.configs' not in (nvim_init_lua.content | b64decode)"
+          - "\"vim.cmd.colorscheme 'tokyonight-night'\" not in (nvim_init_lua.content | b64decode)"
+        fail_msg: >-
+          Neovim Kickstart rewrites did not apply cleanly. Upstream kickstart.nvim
+          may have changed; inspect ~/.config/nvim/init.lua before plugin sync.
 
     - name: Sync Neovim plugins headlessly
       shell: nvim --headless "+Lazy! sync" +qa
