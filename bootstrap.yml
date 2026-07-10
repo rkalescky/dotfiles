@@ -416,17 +416,6 @@
       loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
       when: codex_os == 'Darwin'
 
-    - name: Ensure macOS Homebrew tools are linked in local bin
-      shell: |
-        tool_path="$(PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}")"
-        ln -sf "$tool_path" "{{ local_bin_dir }}/{{ item.binary }}"
-      args:
-        executable: /bin/bash
-      environment:
-        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
-      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
-      when: codex_os == 'Darwin'
-
     - name: Verify tree-sitter CLI is new enough for nvim-treesitter
       shell: |
         set -euo pipefail
