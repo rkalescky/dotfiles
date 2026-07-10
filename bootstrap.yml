@@ -89,7 +89,7 @@
       - name: tmux
         binary: tmux
         pixi:
-          spec: tmux==3.6a
+          spec: tmux==3.7b_
           channel: conda-forge
         darwin:
           install:
