@@ -569,12 +569,12 @@
         state: absent
         line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
 
-    - name: Ensure kickstart declares catppuccin lazy spec
+    - name: Ensure legacy lazy.nvim Kickstart uses catppuccin
       replace:
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
-        regexp: "(  'tpope/vim-sleuth', -- Detect tabstop and shiftwidth automatically\\n)(?!\\n  \\{ -- Catppuccin theme)"
-        replace: |-
-          \1
+        regexp: |-
+          (?s)  \{ -- You can easily change to a different colorscheme\..*?\n  \},\n\n(?=  -- Highlight todo, notes, etc in comments)
+        replace: |2-
             { -- Catppuccin theme
               'catppuccin/nvim',
               name = 'catppuccin',
@@ -602,13 +602,13 @@
       replace:
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
         regexp: "(?s)  ---@diagnostic disable-next-line: missing-fields\\n  require\\('tokyonight'\\)\\.setup \\{\\n.*?\\n  \\}"
-        replace: |-
-          require('catppuccin').setup {
-            flavour = 'latte',
-            styles = {
-              comments = {},
-            },
-          }
+        replace: |2-
+            require('catppuccin').setup {
+              flavour = 'latte',
+              styles = {
+                comments = {},
+              },
+            }
 
     - name: Ensure kickstart loads catppuccin latte
       replace:
@@ -621,6 +621,38 @@
         path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
         regexp: "(?s)  -- Like many other themes, this one has different styles, and you could load\\n  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'\\."
         replace: "  -- Catppuccin supports multiple flavours such as latte, frappe, macchiato, and mocha."
+
+    - name: Read Neovim config after theme rewrites
+      slurp:
+        src: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+      register: nvim_init_after_theme
+
+    - name: Recover catppuccin in partially rewritten lazy.nvim configs
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?m)^  (-- Highlight todo, notes, etc in comments)$"
+        replace: |2-
+            { -- Catppuccin theme
+              'catppuccin/nvim',
+              name = 'catppuccin',
+              lazy = false,
+              priority = 1000,
+              opts = {
+                flavour = 'latte',
+                styles = {
+                  comments = {},
+                },
+              },
+              config = function(_, opts)
+                require('catppuccin').setup(opts)
+                vim.cmd.colorscheme 'catppuccin-latte'
+              end,
+            },
+
+            \g<1>
+      when:
+        - "\"require('lazy').setup\" in (nvim_init_after_theme.content | b64decode)"
+        - "\"catppuccin/nvim\" not in (nvim_init_after_theme.content | b64decode)"
 
     - name: Ensure kickstart declares nvim-treesitter parser registry dependency
       replace:
