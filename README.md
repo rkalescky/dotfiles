@@ -18,6 +18,10 @@ For first-time private setup, run `bootstrap_private` from Fish after bootstrap 
 
 `codex/config.toml` is the shared, machine-agnostic Codex defaults file. Bootstrap merges those defaults into `~/.codex/config.toml` instead of copying or symlinking the whole file, so local Codex-managed state such as trusted projects and notices survives across runs.
 
+## btop on Linux
+
+Linux bootstrap builds btop from the pinned upstream source with Pixi's build system. The local recipe enables dynamic GPU support; it replaces the conda-forge btop global tool. macOS continues to install btop through Homebrew.
+
 ## Lima VMs
 
 Use the dedicated playbook target to configure the Lima VM set.

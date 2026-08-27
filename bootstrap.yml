@@ -170,6 +170,9 @@
         pixi:
           spec: btop
           channel: conda-forge
+          linux_arches:
+            - aarch64
+            - arm64
         darwin:
           install:
             source: brew
@@ -195,6 +198,53 @@
         - codex_os != 'Darwin' or (item.darwin.install.source | default('pixi')) != 'brew'
         - codex_os != 'Linux' or codex_arch in (item.pixi.linux_arches | default(['x86_64', 'aarch64', 'arm64']))
       changed_when: "'already installed' not in (pixi_global_install.stdout | lower)"
+
+    - name: Detect the Pixi btop environment type on Linux x86_64
+      command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - -c
+          - |
+            import sys
+            import tomllib
+            from pathlib import Path
+
+            dependencies = tomllib.loads(Path(sys.argv[1]).read_text()).get("envs", {}).get("btop", {}).get("dependencies", {})
+            btop = dependencies.get("btop")
+            if isinstance(btop, str):
+                print("legacy")
+            elif isinstance(btop, dict) and "path" in btop:
+                print("local")
+            else:
+                print("missing")
+          - "{{ lookup('env', 'HOME') }}/.pixi/manifests/pixi-global.toml"
+      register: btop_pixi_environment
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+
+    - name: Remove the legacy conda-forge btop global environment on Linux
+      command: "{{ pixi_bin }} global uninstall btop"
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+        - (btop_pixi_environment.stdout | trim) == 'legacy'
+
+    - name: Install GPU-enabled btop from the local Pixi build recipe on Linux
+      command:
+        argv:
+          - "{{ pixi_bin }}"
+          - global
+          - install
+          - --path
+          - "{{ playbook_dir }}/btop"
+      register: btop_pixi_build
+      changed_when: "'already installed' not in (btop_pixi_build.stdout | lower)"
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+        - (btop_pixi_environment.stdout | trim) != 'local'
 
     - name: Ensure local bin directory exists
       file:
