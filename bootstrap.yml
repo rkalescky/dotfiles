@@ -21,9 +21,6 @@
     rustup_target: "{{ 'x86_64-apple-darwin' if codex_os == 'Darwin' and codex_arch == 'x86_64' else ('aarch64-apple-darwin' if codex_os == 'Darwin' and codex_arch == 'arm64' else ('x86_64-unknown-linux-gnu' if codex_os == 'Linux' and codex_arch == 'x86_64' else ('aarch64-unknown-linux-gnu' if codex_os == 'Linux' and codex_arch in ['aarch64', 'arm64'] else ''))) }}"
     rustup_download_url: "https://static.rust-lang.org/rustup/dist/{{ rustup_target }}/rustup-init"
     rustup_download_sha256_url: "{{ rustup_download_url }}.sha256"
-    codex_linux_arch: "{{ 'x86_64' if codex_arch == 'x86_64' else ('aarch64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
-    codex_linux_asset: "codex-{{ codex_linux_arch }}-unknown-linux-musl.tar.gz"
-    codex_linux_download_url: "https://github.com/openai/codex/releases/latest/download/{{ codex_linux_asset }}"
     gh_linux_arch: "{{ 'amd64' if codex_arch == 'x86_64' else ('arm64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
     gh_release_api_url: "https://api.github.com/repos/cli/cli/releases/latest"
     bootstrap_is_root: "{{ lookup('pipe', 'id -u') == '0' }}"
@@ -433,13 +430,6 @@
       environment:
         PATH: "{{ bootstrap_shell_path }}"
 
-    - name: Ensure Linux architecture is supported for Codex musl package
-      fail:
-        msg: "Unsupported Linux architecture for Codex musl release: {{ codex_arch }}"
-      when:
-        - codex_os == 'Linux'
-        - codex_linux_arch == ''
-
     - name: Ensure Git LFS is initialized for the current user
       command:
         argv:
@@ -526,27 +516,10 @@
         executable: /bin/bash
       when: codex_os == 'Linux'
 
-    - name: Download latest Codex Linux musl archive
-      command: >
-        curl -fsSL
-        -o {{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}
-        {{ codex_linux_download_url }}
-      changed_when: true
-      when: codex_os == 'Linux'
-
-    - name: Extract latest Codex Linux musl archive
-      shell: >
-        tar -xzf {{ bootstrap_tmp_dir.path }}/{{ codex_linux_asset }}
-        -C {{ bootstrap_tmp_dir.path }}
-      args:
-        executable: /bin/bash
-      when: codex_os == 'Linux'
-
-    - name: Install Codex binary to local bin on Linux
-      shell: >
-        install -m 0755
-        {{ bootstrap_tmp_dir.path }}/codex-{{ codex_linux_arch }}-unknown-linux-musl
-        {{ local_bin_dir }}/codex
+    - name: Install or update Codex with the official standalone installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://chatgpt.com/codex/install.sh | sh
       args:
         executable: /bin/bash
       when: codex_os == 'Linux'
