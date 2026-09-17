@@ -99,16 +99,6 @@
             source: brew
             kind: formula
             package: tmux
-      - name: helix
-        binary: hx
-        pixi:
-          spec: helix
-          channel: conda-forge
-        darwin:
-          install:
-            source: brew
-            kind: formula
-            package: helix
       - name: ripgrep
         binary: rg
         pixi:
@@ -1186,17 +1176,6 @@
       changed_when: false
       environment:
         PATH: "{{ bootstrap_shell_path }}"
-
-    - name: Ensure Helix config directory exists
-      file:
-        path: "{{ lookup('env', 'HOME') }}/.config/helix"
-        state: directory
-
-    - name: Ensure Helix config is installed
-      copy:
-        src: "{{ playbook_dir }}/helix/config.toml"
-        dest: "{{ lookup('env', 'HOME') }}/.config/helix/config.toml"
-        mode: "0644"
 
     - name: Ensure Codex config directory exists
       file:
