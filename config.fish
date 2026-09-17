@@ -1,3 +1,26 @@
+function gh_ssh_load_identity --description "Ensure the GitHub SSH key is loaded in the agent"
+set -l key_path "$HOME/.ssh/id_ed25519_gh"
+if set -q GH_SSH_KEY_PATH
+set key_path "$GH_SSH_KEY_PATH"
+end
+if not test -f "$key_path"
+return 0
+end
+
+set -l key_info (ssh-keygen -lf "$key_path.pub")
+or return 1
+set -l key_fp (string split -n ' ' -- "$key_info")[2]
+if ssh-add -l 2>/dev/null | string match -q -- "*$key_fp*"
+return 0
+end
+
+if test (uname -s) = Darwin
+ssh-add --apple-use-keychain "$key_path"
+else
+ssh-add "$key_path"
+end
+end
+
 if status is-interactive
 set -g fish_greeting
 abbr -a vi nvim
@@ -25,6 +48,9 @@ mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
 ssh-keygen -t ed25519 -f "$GH_SSH_KEY_PATH" -N "" -C "$(whoami)@$(hostname)"
 end
+
+gh_ssh_load_identity
+or echo "Warning: SSH agent identity loading failed; continuing bootstrap with the key on disk." >&2
 
 set -l ssh_config "$HOME/.ssh/config"
 set -l managed_begin "# >>> gh-bootstrap >>>"

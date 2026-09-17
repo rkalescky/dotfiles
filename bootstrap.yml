@@ -31,6 +31,13 @@
             source: brew
             kind: cask
             package: codex
+      - name: agent-safehouse
+        binary: safehouse
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: eugene1g/safehouse/agent-safehouse
       - name: gh
         binary: gh
         darwin:
@@ -1209,6 +1216,22 @@
       register: codex_config_sync
       changed_when: "'changed=true' in codex_config_sync.stdout"
 
+    - name: Ensure Safehouse config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/safehouse"
+        state: directory
+      when: codex_os == 'Darwin'
+
+    - name: Ensure Safehouse overlay profiles are installed
+      copy:
+        src: "{{ playbook_dir }}/safehouse/{{ item }}"
+        dest: "{{ lookup('env', 'HOME') }}/.config/safehouse/{{ item }}"
+        mode: "0644"
+      loop:
+        - common.sb
+        - devin.sb
+      when: codex_os == 'Darwin'
+
     - name: Ensure Catppuccin tmux plugin directory exists
       file:
         path: "{{ catppuccin_tmux_dest }}"
@@ -1239,6 +1262,19 @@
         src: "{{ playbook_dir }}/fish/conf.d/00-paths.fish"
         dest: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/00-paths.fish"
         mode: "0644"
+
+    - name: Ensure Fish Safehouse conf.d snippet is installed
+      copy:
+        src: "{{ playbook_dir }}/fish/conf.d/10-safehouse.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/10-safehouse.fish"
+        mode: "0644"
+      when: codex_os == 'Darwin'
+
+    - name: Remove Fish Safehouse conf.d snippet on non-macOS hosts
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/10-safehouse.fish"
+        state: absent
+      when: codex_os != 'Darwin'
 
     - name: Ensure fish config is installed
       copy:

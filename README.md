@@ -26,9 +26,23 @@ If `~/.dotfiles_private/bootstrap.nu` exists, the public bootstrap runs it after
 
 For first-time private setup, run `bootstrap_private` from Fish after bootstrap completes. It will use GitHub SSH bootstrap if needed, clone `PRIVATE_BOOTSTRAP_REPO_URL` if set or else `git@github.com:rkalescky/dotfiles_private.git` into `~/.dotfiles_private`, and rerun the public bootstrap.
 
+GitHub SSH bootstrap attempts to load the key into ssh-agent, but warns and continues if loading fails, including when no agent is running. Unsandboxed SSH can use the key on disk; Safehouse launches still require successful agent loading when the key exists.
+
 ## Codex config
 
 `codex/config.toml` is the shared, machine-agnostic Codex defaults file. Bootstrap merges those defaults into `~/.codex/config.toml` instead of copying or symlinking the whole file, so local Codex-managed state such as trusted projects and notices survives across runs.
+
+## Agent Safehouse
+
+On macOS, bootstrap installs `agent-safehouse` and a Fish snippet that runs `claude`, `codex`, and `devin` inside [Agent Safehouse](https://agent-safehouse.dev) with their permission prompts disabled; the kernel sandbox limits writes to the launch directory. Use `command codex` (etc.) to run unsandboxed, or `safe <cmd>` to wrap any other command.
+
+All wrappers enable Safehouse's GPU and Xcode integrations for Metal, Xcode app bundles, the full Apple Command Line Tools tree, and scoped build/simulator state. Additional toolchains in `/Library/Developer/Toolchains` and `~/Library/Developer/Toolchains` are readable. `DEVELOPER_DIR` and `TOOLCHAINS` selections are passed through. Homebrew tools are readable through Safehouse's baseline policy, and Fish adds the standard Apple Silicon and Intel Homebrew binary directories to `PATH`. Keg-only tools remain available by their explicit paths, such as `/opt/homebrew/opt/swift/bin/swiftc`. These grants do not permit modifying installed toolchains or Homebrew packages. Apply changes with bootstrap and start a new agent session; an existing sandbox cannot gain these permissions.
+
+Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its state directories. Never pass `--sandbox` to Devin inside Safehouse; the wrapper uses `--permission-mode dangerous` instead.
+
+SSH keys are never readable inside the sandbox; `git push` works through ssh-agent. Before each `safe` or wrapped agent launch, the GitHub key is loaded outside the sandbox if it exists and is missing from the agent, including after a reboot or agent restart. An identity-loading failure stops the launch. `gh_ssh_bootstrap` uses the same helper, selecting `ssh-add --apple-use-keychain` on macOS and plain `ssh-add` on Linux. `safehouse/common.sb` allows reading only the public key so `IdentitiesOnly` can pick the agent identity. Safehouse installation and wrapper functions are restricted to macOS.
+
+To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir.
 
 ## btop on Linux
 

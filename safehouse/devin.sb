@@ -1,0 +1,23 @@
+;; ---------------------------------------------------------------------------
+;; Agent: Devin CLI
+;; Devin CLI state, config, cache, and plan paths.
+;; Devin has no upstream Safehouse profile; load this with --append-profile.
+;; Never combine with `devin --sandbox`: Devin's own seatbelt sandbox cannot
+;; nest inside Safehouse. Use `devin --permission-mode dangerous` instead.
+;; ---------------------------------------------------------------------------
+
+;; - Homebrew cask binary under /opt/homebrew/Caskroom/devin-cli (readable via /opt)
+;; - config under ~/.config/devin, credentials/sessions under ~/.local/share/devin
+;; - cache under ~/.cache/devin, plan files under ~/.devin
+
+(allow file-read* file-write*
+    (home-subpath "/.config/devin")       ;; config.json, cli/ settings.
+    (home-subpath "/.cache/devin")        ;; telemetry state and model/plugin caches.
+    (home-subpath "/.local/share/devin")  ;; credentials.toml, sessions.db, transcripts, MCP oauth.
+    (home-subpath "/.devin")              ;; plan-mode plan files.
+)
+
+(allow file-read*
+    (home-literal "/.codex")              ;; Traversal for the Codex skills directory below.
+    (home-subpath "/.codex/skills")       ;; Devin loads Codex-compatible skills read-only.
+)
