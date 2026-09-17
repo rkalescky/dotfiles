@@ -36,6 +36,8 @@ GitHub SSH bootstrap attempts to load the key into ssh-agent, but warns and cont
 
 Bootstrap installs Devin CLI through the `devin-cli` Homebrew cask on macOS and the [official install script](https://docs.devin.ai/cli) on Linux. The Linux installer places `devin` in `~/.local/bin`, which is included in the Fish path.
 
+Claude Code is installed through the `claude-code` Homebrew cask on macOS and the [official install script](https://code.claude.com/docs/en/setup) on Linux, with the Linux executable at `~/.local/bin/claude`.
+
 On macOS, bootstrap installs `agent-safehouse` and a Fish snippet that runs `claude`, `codex`, and `devin` inside [Agent Safehouse](https://agent-safehouse.dev) with their permission prompts disabled; the kernel sandbox limits writes to the launch directory. Use `command codex` (etc.) to run unsandboxed, or `safe <cmd>` to wrap any other command.
 
 All wrappers enable Safehouse's GPU and Xcode integrations for Metal, Xcode app bundles, the full Apple Command Line Tools tree, and scoped build/simulator state. Additional toolchains in `/Library/Developer/Toolchains` and `~/Library/Developer/Toolchains` are readable. `DEVELOPER_DIR` and `TOOLCHAINS` selections are passed through. Homebrew tools are readable through Safehouse's baseline policy, and Fish adds the standard Apple Silicon and Intel Homebrew binary directories to `PATH`. Keg-only tools remain available by their explicit paths, such as `/opt/homebrew/opt/swift/bin/swiftc`. These grants do not permit modifying installed toolchains or Homebrew packages. Apply changes with bootstrap and start a new agent session; an existing sandbox cannot gain these permissions.

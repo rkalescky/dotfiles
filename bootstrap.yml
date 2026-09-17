@@ -31,6 +31,13 @@
             source: brew
             kind: cask
             package: codex
+      - name: claude-code
+        binary: claude
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: claude-code
       - name: devin
         binary: devin
         darwin:
@@ -1001,6 +1008,24 @@
       args:
         executable: /bin/bash
       when: codex_os == 'Linux'
+
+    - name: Install or update Claude Code with the official installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://claude.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Verify Claude Code is installed on Linux
+      command:
+        argv:
+          - "{{ local_bin_dir }}/claude"
+          - --version
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - not ansible_check_mode
 
     - name: Install or update Devin with the official installer on Linux
       shell: |
