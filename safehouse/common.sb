@@ -16,6 +16,11 @@
     (home-subpath "/Library/Developer/Toolchains")
 )
 
+(allow file-read*
+    (subpath "/Library/TeX")
+    (subpath "/usr/local/texlive")
+)
+
 ;; Private dotfiles must never be visible, regardless of workdir grants.
 (deny file-read* file-write*
     (home-subpath "/.dotfiles_private")

@@ -24,6 +24,30 @@
     gh_release_api_url: "https://api.github.com/repos/cli/cli/releases/latest"
     bootstrap_is_root: "{{ lookup('pipe', 'id -u') == '0' }}"
     tools:
+      - name: ghostty
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: ghostty
+      - name: mactex-no-gui
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: mactex-no-gui
+      - name: netnewswire
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: netnewswire
+      - name: utm
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: utm
       - name: codex
         binary: codex
         darwin:
@@ -492,12 +516,15 @@
 
     - name: Verify macOS Homebrew tools are installed and discoverable
       shell: |
+        set -euo pipefail
         if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
           brew list --cask "{{ item.darwin.install.package }}" >/dev/null
         else
           brew list --formula "{{ item.darwin.install.package }}" >/dev/null
         fi
+        {% if item.binary is defined %}
         PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}"
+        {% endif %}
       args:
         executable: /bin/bash
       environment:
