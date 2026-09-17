@@ -600,8 +600,8 @@
       loop:
         - { key: wvous-tl-corner, value: 5 } # top-left: Start Screen Saver
         - { key: wvous-tr-corner, value: 4 } # top-right: Desktop
-        - { key: wvous-br-corner, value: 3 } # bottom-right: Application Windows
-        - { key: wvous-bl-corner, value: 2 } # bottom-left: Mission Control
+        - { key: wvous-br-corner, value: 2 } # bottom-right: Mission Control
+        - { key: wvous-bl-corner, value: 3 } # bottom-left: Application Windows
         - { key: wvous-tl-modifier, value: 0 }
         - { key: wvous-tr-modifier, value: 0 }
         - { key: wvous-br-modifier, value: 0 }
