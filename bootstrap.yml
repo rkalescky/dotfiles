@@ -5,7 +5,6 @@
   gather_facts: false
 
   vars:
-    pixi_bin: "{{ lookup('env', 'HOME') }}/.pixi/bin/pixi"
     catppuccin_tmux_version: v2.1.3
     catppuccin_tmux_dest: "{{ lookup('env', 'HOME') }}/.config/tmux/plugins/catppuccin/tmux"
     catppuccin_fish_dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin"
@@ -190,6 +189,39 @@
             package: nushell
 
   tasks:
+    - name: Check whether Homebrew is installed on macOS
+      shell: command -v brew
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      register: homebrew_check
+      changed_when: false
+      failed_when: false
+      when: codex_os == 'Darwin'
+
+    - name: Fail when Homebrew is missing on macOS
+      fail:
+        msg: >-
+          Homebrew is required on macOS. Run bootstrap.sh, which installs
+          Homebrew and Pixi automatically, or install Homebrew from https://brew.sh.
+      when:
+        - codex_os == 'Darwin'
+        - homebrew_check.rc != 0
+
+    - name: Resolve the Pixi executable path
+      shell: command -v pixi
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+      register: pixi_which
+      changed_when: false
+
+    - name: Set pixi_bin from the resolved Pixi path
+      set_fact:
+        pixi_bin: "{{ pixi_which.stdout }}"
+
     - name: Ensure configured global packages are installed via Pixi
       command: "{{ pixi_bin }} global install --channel {{ item.pixi.channel }} {{ item.pixi.spec }}"
       register: pixi_global_install
@@ -462,6 +494,398 @@
       changed_when: false
       loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
       when: codex_os == 'Darwin'
+
+    - name: Ensure macOS appearance is set to light
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item }}"
+        state: absent
+      loop:
+        - AppleInterfaceStyle
+        - AppleInterfaceStyleSwitchesAutomatically
+      when: codex_os == 'Darwin'
+
+    - name: Configure macOS wallpaper
+      when: codex_os == 'Darwin'
+      tags: macos-wallpaper
+      block:
+        - name: Set Shuffle Aerials to Shuffle All every 12 hours
+          command:
+            argv:
+              - "{{ ansible_playbook_python }}"
+              - "{{ playbook_dir }}/wallpaper/configure.py"
+              - --mode
+              - "{{ 'check' if ansible_check_mode else 'apply' }}"
+          register: macos_wallpaper
+          changed_when: (macos_wallpaper.stdout | from_json).changed
+          check_mode: false
+
+        - name: Reload the changed wallpaper configuration
+          command: killall WallpaperAgent
+          register: macos_wallpaper_reload
+          changed_when: macos_wallpaper_reload.rc == 0
+          failed_when: macos_wallpaper_reload.rc not in [0, 1]
+          when:
+            - not ansible_check_mode
+            - macos_wallpaper is changed
+
+        - name: Verify the wallpaper selection and shuffle interval
+          command:
+            argv:
+              - "{{ ansible_playbook_python }}"
+              - "{{ playbook_dir }}/wallpaper/configure.py"
+              - --mode
+              - verify
+          changed_when: false
+          when: not ansible_check_mode
+
+    - name: Set macOS keyboard repeat to Fast and delay to Short
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item.key }}"
+        type: float
+        # System Settings writes floats; accept equivalent integers from defaults as well.
+        check_type: false
+        value: "{{ item.value }}"
+      loop:
+        - { key: KeyRepeat, value: 2 }
+        - { key: InitialKeyRepeat, value: 15 }
+      when: codex_os == 'Darwin'
+      tags: macos-keyboard
+
+    - name: Configure the macOS mouse
+      when: codex_os == 'Darwin'
+      tags: macos-mouse
+      block:
+        - name: Set mouse tracking speed to Fast
+          community.general.osx_defaults:
+            domain: NSGlobalDomain
+            key: com.apple.mouse.scaling
+            type: float
+            check_type: false
+            value: 3.0
+
+        - name: Disable natural scrolling
+          community.general.osx_defaults:
+            domain: NSGlobalDomain
+            key: com.apple.swipescrolldirection
+            type: bool
+            value: false
+
+        - name: Set mouse secondary click to Click Right Side
+          community.general.osx_defaults:
+            domain: "{{ item }}"
+            key: MouseButtonMode
+            type: string
+            value: TwoButton
+          loop:
+            - com.apple.AppleMultitouchMouse
+            - com.apple.driver.AppleBluetoothMultitouch.mouse
+
+    - name: Ensure macOS Dock automatically hides and shows
+      community.general.osx_defaults:
+        domain: com.apple.dock
+        key: autohide
+        type: bool
+        value: true
+      register: dock_autohide
+      when: codex_os == 'Darwin'
+
+    - name: Ensure macOS Hot Corners are configured
+      community.general.osx_defaults:
+        domain: com.apple.dock
+        key: "{{ item.key }}"
+        type: int
+        value: "{{ item.value }}"
+      loop:
+        - { key: wvous-tl-corner, value: 5 } # top-left: Start Screen Saver
+        - { key: wvous-tr-corner, value: 4 } # top-right: Desktop
+        - { key: wvous-br-corner, value: 3 } # bottom-right: Application Windows
+        - { key: wvous-bl-corner, value: 2 } # bottom-left: Mission Control
+        - { key: wvous-tl-modifier, value: 0 }
+        - { key: wvous-tr-modifier, value: 0 }
+        - { key: wvous-br-modifier, value: 0 }
+        - { key: wvous-bl-modifier, value: 0 }
+      register: dock_hot_corners
+      when: codex_os == 'Darwin'
+
+    - name: Restart the Dock to apply changed settings
+      command: killall Dock
+      when:
+        - codex_os == 'Darwin'
+        - dock_autohide is changed or dock_hot_corners is changed
+
+    - name: Ensure macOS menu bar is never automatically hidden
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item.key }}"
+        type: bool
+        value: "{{ item.value }}"
+      loop:
+        - { key: _HIHideMenuBar, value: false }
+        - { key: AppleMenuBarVisibleInFullscreen, value: true }
+      register: menu_bar_autohide
+      when: codex_os == 'Darwin'
+
+    - name: Restart ControlCenter to apply menu bar settings
+      command: killall ControlCenter
+      when:
+        - codex_os == 'Darwin'
+        - menu_bar_autohide is changed
+
+    - name: Configure the macOS firewall
+      when: codex_os == 'Darwin'
+      tags: macos-firewall
+      vars:
+        macos_firewall_settings:
+          - name: Firewall enabled
+            get: --getglobalstate
+            set: --setglobalstate
+            expected: 'State = [12]'
+          - name: Block all incoming connections
+            get: --getblockall
+            set: --setblockall
+            expected: '^Firewall is blocking all non-essential incoming connections\.$'
+          - name: Automatically allow built-in software
+            get: --getallowsigned
+            set: --setallowsigned
+            expected: 'Automatically allow built-in signed software ENABLED'
+          - name: Automatically allow downloaded signed software
+            get: --getallowsigned
+            set: --setallowsignedapp
+            expected: 'Automatically allow downloaded signed software ENABLED'
+          - name: Stealth mode enabled
+            get: --getstealthmode
+            set: --setstealthmode
+            expected: 'stealth mode is on'
+      block:
+        - name: Read the effective macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item['get'] }}"
+          loop: "{{ macos_firewall_settings }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: macos_firewall_status
+          changed_when: false
+          check_mode: false
+
+        - name: Initialize pending firewall settings
+          set_fact:
+            macos_firewall_pending: []
+
+        - name: Collect firewall settings that need changing
+          set_fact:
+            macos_firewall_pending: "{{ macos_firewall_pending + [item.item] }}"
+          loop: "{{ macos_firewall_status.results }}"
+          loop_control:
+            label: "{{ item.item.name }}"
+          when: item.stdout is not search(item.item.expected)
+
+        - name: Check whether firewall changes can use sudo without a password
+          command: /usr/bin/sudo -n true
+          register: macos_firewall_sudo
+          changed_when: false
+          failed_when: false
+          when:
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+
+        - name: Request administrator password for firewall changes
+          pause:
+            prompt: Enter your macOS administrator password to configure the firewall
+            echo: false
+          register: macos_firewall_password
+          no_log: true
+          when:
+            - not ansible_check_mode
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+            - macos_firewall_sudo.rc != 0
+
+        - name: Require authentication for firewall changes
+          fail:
+            msg: >-
+              Changing the macOS firewall requires administrator access. Re-run bootstrap
+              from a terminal and enter your administrator password when prompted.
+          when:
+            - not ansible_check_mode
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+            - macos_firewall_sudo.rc != 0
+            - (macos_firewall_password.user_input | default('') | length) == 0
+
+        - name: Apply the requested macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item.set }}"
+              - 'on'
+          become: true
+          vars:
+            ansible_become_password: "{{ macos_firewall_password.user_input | default('') }}"
+          loop: "{{ macos_firewall_pending }}"
+          loop_control:
+            label: "{{ item.name }}"
+          when: not ansible_check_mode
+
+        - name: Verify the effective macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item['get'] }}"
+          loop: "{{ macos_firewall_settings }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: macos_firewall_verified
+          changed_when: false
+          failed_when: >-
+            macos_firewall_verified.rc != 0 or
+            macos_firewall_verified.stdout is not search(item.expected)
+          when: not ansible_check_mode
+
+    - name: Require an administrator password to access system-wide settings
+      when: codex_os == 'Darwin'
+      tags: macos-admin-settings
+      vars:
+        macos_preferences_become_password: "{{ macos_preferences_password.user_input | default(macos_firewall_password.user_input | default('')) }}"
+        macos_preferences_read_argv:
+          - "{{ ansible_playbook_python }}"
+          - -c
+          - |
+            import json
+            import plistlib
+            import subprocess
+
+            result = subprocess.run(
+                ['/usr/bin/security', 'authorizationdb', 'read', 'system.preferences'],
+                check=True, capture_output=True,
+            )
+            rule = plistlib.loads(result.stdout)
+            enabled = rule.get('shared') is False
+            rule['shared'] = False
+            print(json.dumps({
+                'enabled': enabled,
+                'updated_plist': plistlib.dumps(rule).decode(),
+            }))
+      block:
+        - name: Read the system-wide settings authorization rule
+          command:
+            argv: "{{ macos_preferences_read_argv }}"
+          register: macos_preferences_state
+          changed_when: false
+          check_mode: false
+
+        - name: Enable administrator authentication for system-wide settings
+          when:
+            - not ansible_check_mode
+            - not (macos_preferences_state.stdout | from_json).enabled
+          block:
+            - name: Check whether authorization changes can use sudo without a password
+              command: /usr/bin/sudo -n true
+              register: macos_preferences_sudo
+              changed_when: false
+              failed_when: false
+              when: not bootstrap_is_root
+
+            - name: Request administrator password for system-wide settings
+              pause:
+                prompt: Enter your macOS administrator password to protect system-wide settings
+                echo: false
+              register: macos_preferences_password
+              no_log: true
+              when:
+                - not bootstrap_is_root
+                - macos_preferences_sudo.rc != 0
+                - macos_preferences_become_password | length == 0
+
+            - name: Require authentication for authorization changes
+              fail:
+                msg: >-
+                  Protecting system-wide settings requires administrator access. Re-run
+                  bootstrap from a terminal and enter your administrator password when prompted.
+              when:
+                - not bootstrap_is_root
+                - macos_preferences_sudo.rc != 0
+                - macos_preferences_become_password | length == 0
+
+            - name: Save the system-wide settings authorization rule
+              command:
+                argv:
+                  - /usr/bin/security
+                  - authorizationdb
+                  - write
+                  - system.preferences
+                stdin: "{{ (macos_preferences_state.stdout | from_json).updated_plist }}"
+              become: true
+              vars:
+                ansible_become_password: "{{ macos_preferences_become_password }}"
+
+        - name: Verify administrator authentication for system-wide settings
+          command:
+            argv: "{{ macos_preferences_read_argv }}"
+          register: macos_preferences_verified
+          changed_when: false
+          failed_when: >-
+            macos_preferences_verified.rc != 0 or
+            not (macos_preferences_verified.stdout | from_json).enabled
+          when: not ansible_check_mode
+
+    - name: Read the effective macOS screen lock delay
+      command: /usr/sbin/sysadminctl -screenLock status
+      register: screen_lock_status
+      changed_when: false
+      check_mode: false
+      when: codex_os == 'Darwin'
+
+    - name: Request login password to set the screen lock delay
+      pause:
+        prompt: Enter your macOS login password to require it immediately after screen saver or display off
+        echo: false
+      register: screen_lock_password
+      no_log: true
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+
+    - name: Require interactive authentication when changing the screen lock delay
+      fail:
+        msg: >-
+          Setting the screen lock delay requires your login password. Re-run bootstrap
+          from a terminal, or set Require password to Immediately in System Settings > Lock Screen.
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+        - (screen_lock_password.user_input | default('') | length) == 0
+
+    - name: Require password immediately after screen saver or display off
+      command:
+        argv:
+          - /usr/sbin/sysadminctl
+          - -screenLock
+          - immediate
+          - -password
+          - '-'
+        stdin: "{{ screen_lock_password.user_input }}"
+      no_log: true
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+
+    - name: Verify macOS requires the password immediately
+      command: /usr/sbin/sysadminctl -screenLock status
+      register: screen_lock_verified
+      changed_when: false
+      failed_when: >-
+        screen_lock_verified.rc != 0 or
+        'screenLock delay is immediate' not in (screen_lock_verified.stdout ~ screen_lock_verified.stderr)
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
 
     - name: Verify tree-sitter CLI is new enough for nvim-treesitter
       shell: |

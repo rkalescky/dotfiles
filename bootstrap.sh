@@ -35,10 +35,57 @@ resolve_pixi_target() {
   case "$os:$arch" in
     Linux:x86_64) echo "x86_64-unknown-linux-musl" ;;
     Linux:aarch64 | Linux:arm64) echo "aarch64-unknown-linux-musl" ;;
-    Darwin:x86_64) echo "x86_64-apple-darwin" ;;
-    Darwin:arm64) echo "aarch64-apple-darwin" ;;
     *) return 1 ;;
   esac
+}
+
+ensure_homebrew() {
+  local brew_exec=""
+  local installer
+  if command -v brew >/dev/null 2>&1; then
+    brew_exec="$(command -v brew)"
+  elif [[ -x /opt/homebrew/bin/brew ]]; then
+    brew_exec="/opt/homebrew/bin/brew"
+  elif [[ -x /usr/local/bin/brew ]]; then
+    brew_exec="/usr/local/bin/brew"
+  fi
+
+  if [[ -z "$brew_exec" ]]; then
+    installer="$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Keep installer prompts off the pipe carrying this bootstrap script.
+    if [[ -z "${NONINTERACTIVE-}" && -z "${CI-}" ]] && ( : </dev/tty ) 2>/dev/null; then
+      /bin/bash -c "$installer" </dev/tty
+    else
+      NONINTERACTIVE=1 /bin/bash -c "$installer" </dev/null
+    fi
+    if [[ -x /opt/homebrew/bin/brew ]]; then
+      brew_exec="/opt/homebrew/bin/brew"
+    elif [[ -x /usr/local/bin/brew ]]; then
+      brew_exec="/usr/local/bin/brew"
+    elif command -v brew >/dev/null 2>&1; then
+      brew_exec="$(command -v brew)"
+    else
+      echo "Homebrew installation did not produce a brew executable." >&2
+      return 1
+    fi
+  fi
+
+  eval "$("$brew_exec" shellenv)"
+}
+
+install_or_update_pixi_brew() {
+  if brew list --versions pixi >/dev/null 2>&1; then
+    if [[ -n "$(brew outdated pixi)" ]]; then
+      brew upgrade pixi
+    fi
+  else
+    brew install pixi
+  fi
+  PIXI_BIN="$(brew --prefix)/bin/pixi"
+
+  if [[ -f "$HOME/.pixi/bin/pixi" ]]; then
+    rm -f "$HOME/.pixi/bin/pixi"
+  fi
 }
 
 install_or_update_pixi() {
@@ -90,7 +137,10 @@ raise SystemExit(1)
   install -m 0755 "$tmp_bin" "$PIXI_BIN"
 }
 
-if [[ ! -x "$PIXI_BIN" ]]; then
+if [[ "$(uname -s)" == "Darwin" ]]; then
+  ensure_homebrew
+  install_or_update_pixi_brew
+elif [[ ! -x "$PIXI_BIN" ]]; then
   install_or_update_pixi
 else
   "$PIXI_BIN" self-update
@@ -130,7 +180,12 @@ fi
 
 "$PIXI_BIN" global install --channel conda-forge ansible
 
-"$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH"
+# Ansible's hidden password prompt needs terminal input, not the bootstrap pipe.
+if [[ -z "${NONINTERACTIVE-}" && -z "${CI-}" ]] && ( : </dev/tty ) 2>/dev/null; then
+  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH" </dev/tty
+else
+  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH" </dev/null
+fi
 
 export PUBLIC_DOTFILES_DIR="$BOOTSTRAP_DIR"
 export PRIVATE_DOTFILES_DIR="$PRIVATE_BOOTSTRAP_DIR"
