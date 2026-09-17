@@ -31,6 +31,13 @@
             source: brew
             kind: cask
             package: codex
+      - name: devin
+        binary: devin
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: devin-cli
       - name: agent-safehouse
         binary: safehouse
         darwin:
@@ -994,6 +1001,24 @@
       args:
         executable: /bin/bash
       when: codex_os == 'Linux'
+
+    - name: Install or update Devin with the official installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://cli.devin.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Verify Devin is installed on Linux
+      command:
+        argv:
+          - "{{ local_bin_dir }}/devin"
+          - --version
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - not ansible_check_mode
 
     - name: Bootstrap Neovim config from kickstart.nvim
       shell: git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
