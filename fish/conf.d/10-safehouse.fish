@@ -13,9 +13,23 @@ if test (uname -s) = Darwin; and command -q safehouse
     end
 
     function safe --description "Run a command inside Agent Safehouse"
-        set -l dir (__safehouse_workdir)
-        or return 1
-        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" --workdir=$dir $argv
+        set -l workdir_arg
+        for arg in $argv
+            if test "$arg" = --
+                break
+            else if string match -q -- "--workdir*" "$arg"
+                set workdir_arg 1
+                break
+            end
+        end
+        if test -z "$workdir_arg"
+            set -l dir (__safehouse_workdir)
+            or return 1
+            set workdir_arg --workdir=$dir
+        else
+            set workdir_arg
+        end
+        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" $workdir_arg $argv
     end
 
     function safe-xcode --description "Run a command inside Agent Safehouse with Xcode integration"
