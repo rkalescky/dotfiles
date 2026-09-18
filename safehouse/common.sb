@@ -1,14 +1,6 @@
 ;; ---------------------------------------------------------------------------
 ;; Shared overlay applied to every Safehouse-wrapped agent (--append-profile).
-;; Appended profiles load after the built-in ssh integration, so the allow
-;; below wins over its `~/.ssh` deny while private keys stay hidden.
 ;; ---------------------------------------------------------------------------
-
-;; With `IdentitiesOnly yes` ssh reads the public key file to pick the matching
-;; identity from ssh-agent. The private key stays denied by 55-integrations-optional/ssh.sb.
-(allow file-read*
-    (home-literal "/.ssh/id_ed25519_gh.pub")
-)
 
 (allow file-read*
     (subpath "/Library/Developer/Toolchains")

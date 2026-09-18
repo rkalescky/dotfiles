@@ -26,7 +26,7 @@ If `~/.dotfiles_private/bootstrap.nu` exists, the public bootstrap runs it after
 
 For first-time private setup, run `bootstrap_private` from Fish after bootstrap completes. It will use GitHub SSH bootstrap if needed, clone `PRIVATE_BOOTSTRAP_REPO_URL` if set or else `git@github.com:rkalescky/dotfiles_private.git` into `~/.dotfiles_private`, and rerun the public bootstrap.
 
-GitHub SSH bootstrap attempts to load the key into ssh-agent, but warns and continues if loading fails, including when no agent is running. Unsandboxed SSH can use the key on disk; Safehouse launches still require successful agent loading when the key exists.
+GitHub SSH bootstrap attempts to load the key into ssh-agent, but warns and continues if loading fails, including when no agent is running. Unsandboxed SSH can use the key on disk.
 
 ## Codex config
 
@@ -46,7 +46,7 @@ On macOS, Fish also adds `/Library/TeX/texbin` to `PATH` when installed. The sha
 
 Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its state directories. Never pass `--sandbox` to Devin inside Safehouse; the wrapper uses `--permission-mode dangerous` instead.
 
-SSH keys are never readable inside the sandbox; `git push` works through ssh-agent. Before each `safe` or wrapped agent launch, the GitHub key is loaded outside the sandbox if it exists and is missing from the agent, including after a reboot or agent restart. An identity-loading failure stops the launch. `gh_ssh_bootstrap` uses the same helper, selecting `ssh-add --apple-use-keychain` on macOS and plain `ssh-add` on Linux. `safehouse/common.sb` allows reading only the public key so `IdentitiesOnly` can pick the agent identity. Safehouse installation and wrapper functions are restricted to macOS.
+Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. Safehouse installation and wrapper functions are restricted to macOS.
 
 To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir.
 

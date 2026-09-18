@@ -1,8 +1,6 @@
 if test (uname -s) = Darwin; and command -q safehouse
     function safe --description "Run a command inside Agent Safehouse"
-        gh_ssh_load_identity
-        or return 1
-        safehouse --enable=ssh,gpu,xcode --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" $argv
+        safehouse --enable=gpu,xcode --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" $argv
     end
 
     if command -q claude
