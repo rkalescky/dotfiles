@@ -54,6 +54,8 @@ All wrappers enable Safehouse's GPU and Xcode integrations for Metal, Xcode app 
 
 On macOS, Fish also adds `/Library/TeX/texbin` to `PATH` when installed. The shared Safehouse profile grants read-only access to `/Library/TeX` and the backing TeX Live distribution at `/usr/local/texlive` for every wrapped agent and `safe` command.
 
+`~/.pixi` is readable (read-only) inside the sandbox, so `make bootstrap` syntax checks and Pixi-installed tools such as Ansible work when wrapped.
+
 Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its state directories. Never pass `--sandbox` to Devin inside Safehouse; the wrapper uses `--permission-mode dangerous` instead.
 
 Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. Safehouse installation and wrapper functions are restricted to macOS.

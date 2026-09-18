@@ -13,6 +13,11 @@
     (subpath "/usr/local/texlive")
 )
 
+;; Pixi global tools and environments (Ansible for bootstrap).
+(allow file-read*
+    (home-subpath "/.pixi")
+)
+
 ;; Private dotfiles must never be visible, regardless of workdir grants.
 (deny file-read* file-write*
     (home-subpath "/.dotfiles_private")
