@@ -10,7 +10,6 @@
 
 (allow file-read*
     (subpath "/Library/TeX")
-    (subpath "/usr/local/texlive")
 )
 
 ;; Pixi global tools and environments (Ansible for bootstrap).

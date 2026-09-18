@@ -63,6 +63,12 @@ if test (uname -s) = Darwin; and command -q safehouse
 
     if command -q devin
         function devin --description "Devin CLI inside Agent Safehouse (bypass with `command devin`)"
+            for arg in $argv
+                if test "$arg" = --sandbox; or string match -q -- "--sandbox=*" "$arg"
+                    echo "devin: --sandbox cannot be nested inside Safehouse; use `command devin --sandbox` instead" >&2
+                    return 1
+                end
+            end
             safe --append-profile="$HOME/.config/safehouse/devin.sb" devin --permission-mode dangerous $argv
         end
     end

@@ -52,7 +52,7 @@ On macOS, bootstrap installs `agent-safehouse` and a Fish snippet that runs `cla
 
 All wrappers enable Safehouse's GPU integration only, which covers Metal compute — PyTorch MPS, OpenMM-Metal, and burn/cubecl need nothing more. Xcode integration (Xcode app bundles, the full Apple Command Line Tools tree, and scoped simulator/device state) is available on demand via `safe-xcode <cmd>` or a trusted `.safehouse` file with `enable=xcode`; it is needed only for `xcrun metal` offline shader compilation, `xcodebuild`, simulators, and CLT Swift. Additional toolchains in `/Library/Developer/Toolchains` and `~/Library/Developer/Toolchains` are readable. `DEVELOPER_DIR` and `TOOLCHAINS` selections are passed through. Homebrew tools are readable through Safehouse's baseline policy, and Fish adds the standard Apple Silicon and Intel Homebrew binary directories to `PATH`. Keg-only tools remain available by their explicit paths, such as `/opt/homebrew/opt/swift/bin/swiftc`. These grants do not permit modifying installed toolchains or Homebrew packages. Apply changes with bootstrap and start a new agent session; an existing sandbox cannot gain these permissions.
 
-On macOS, Fish also adds `/Library/TeX/texbin` to `PATH` when installed. The shared Safehouse profile grants read-only access to `/Library/TeX` and the backing TeX Live distribution at `/usr/local/texlive` for every wrapped agent and `safe` command.
+On macOS, Fish also adds `/Library/TeX/texbin` to `PATH` when installed. The shared Safehouse profile grants read-only access to `/Library/TeX` for every wrapped agent and `safe` command; the backing TeX Live distribution under `/usr` is covered by Safehouse's baseline policy.
 
 `~/.pixi` is readable (read-only) inside the sandbox, so `make bootstrap` syntax checks and Pixi-installed tools such as Ansible work when wrapped.
 
@@ -61,6 +61,8 @@ Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its stat
 Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. `~/.dotfiles_private` must be a real directory, not a symlink, because the sandbox matches resolved paths. Safehouse installation and wrapper functions are restricted to macOS.
 
 To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir. The wrappers refuse to run with `$HOME` or `/` as the workdir, and `codex -C DIR` scopes the sandbox to DIR.
+
+What remains readable by design: `~/.config/gh` (the GitHub token), `~/.npmrc`, Devin credentials under `~/.local/share/devin`, and the keychain, microphone, and browser-native-messaging integrations Safehouse auto-injects for `claude` and `codex`. Outbound network access is unrestricted by Safehouse's design.
 
 ## btop on Linux
 
