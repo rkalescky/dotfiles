@@ -17,3 +17,9 @@
 (deny file-read* file-write*
     (home-subpath "/.dotfiles_private")
 )
+
+;; Sandbox policy sources must not be editable from inside the sandbox.
+(deny file-write*
+    (home-subpath "/.dotfiles/safehouse")
+    (home-literal "/.dotfiles/fish/conf.d/10-safehouse.fish")
+)
