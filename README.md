@@ -58,7 +58,7 @@ On macOS, Fish also adds `/Library/TeX/texbin` to `PATH` when installed. The sha
 
 Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its state directories. Never pass `--sandbox` to Devin inside Safehouse; the wrapper uses `--permission-mode dangerous` instead.
 
-Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. Safehouse installation and wrapper functions are restricted to macOS.
+Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. `~/.dotfiles_private` must be a real directory, not a symlink, because the sandbox matches resolved paths. Safehouse installation and wrapper functions are restricted to macOS.
 
 To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir.
 

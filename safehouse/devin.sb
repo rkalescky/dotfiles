@@ -21,3 +21,8 @@
     (home-literal "/.codex")              ;; Traversal for the Codex skills directory below.
     (home-subpath "/.codex/skills")       ;; Devin loads Codex-compatible skills read-only.
 )
+
+;; Private dotfiles must never be visible, regardless of workdir grants.
+(deny file-read* file-write*
+    (home-subpath "/.dotfiles_private")
+)
