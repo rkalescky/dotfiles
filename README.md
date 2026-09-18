@@ -60,7 +60,7 @@ Devin has no upstream Safehouse profile, so `safehouse/devin.sb` grants its stat
 
 Safehouse wrappers do not enable SSH integration, load SSH identities, or grant access to the GitHub public key. Run Git operations that require SSH outside the sandbox. `~/.dotfiles_private` must be a real directory, not a symlink, because the sandbox matches resolved paths. Safehouse installation and wrapper functions are restricted to macOS.
 
-To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir.
+To grant extra directories per launch, use `safehouse --add-dirs-ro=~/other-repo -- codex ...`, or place a trusted `.safehouse` file in the workdir. The wrappers refuse to run with `$HOME` or `/` as the workdir, and `codex -C DIR` scopes the sandbox to DIR.
 
 ## btop on Linux
 

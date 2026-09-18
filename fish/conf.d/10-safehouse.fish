@@ -1,6 +1,21 @@
 if test (uname -s) = Darwin; and command -q safehouse
+    function __safehouse_workdir
+        set -l dir $PWD
+        if test (count $argv) -gt 0
+            set dir $argv[1]
+        end
+        set dir (realpath $dir)
+        if test "$dir" = (realpath "$HOME"); or test "$dir" = /
+            echo "safehouse: refusing to sandbox $dir; cd into a project directory first" >&2
+            return 1
+        end
+        echo $dir
+    end
+
     function safe --description "Run a command inside Agent Safehouse"
-        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" $argv
+        set -l dir (__safehouse_workdir)
+        or return 1
+        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" --workdir=$dir $argv
     end
 
     function safe-xcode --description "Run a command inside Agent Safehouse with Xcode integration"
@@ -15,7 +30,34 @@ if test (uname -s) = Darwin; and command -q safehouse
 
     if command -q codex
         function codex --description "Codex inside Agent Safehouse (bypass with `command codex`)"
-            safe codex --dangerously-bypass-approvals-and-sandbox $argv
+            set -l workdir
+            set -l i 1
+            while test $i -le (count $argv)
+                set -l arg $argv[$i]
+                if test "$arg" = --
+                    break
+                else if test "$arg" = -C; or test "$arg" = --cd
+                    set i (math $i + 1)
+                    if test $i -le (count $argv)
+                        set workdir $argv[$i]
+                    end
+                    break
+                else if string match -q -- "-C*" "$arg"
+                    set workdir (string sub -s 3 -- $arg)
+                    break
+                else if string match -q -- "--cd=*" "$arg"
+                    set workdir (string replace -- "--cd=" "" $arg)
+                    break
+                end
+                set i (math $i + 1)
+            end
+            if test -n "$workdir"
+                set -l dir (__safehouse_workdir $workdir)
+                or return 1
+                safe --workdir=$dir codex --dangerously-bypass-approvals-and-sandbox $argv
+            else
+                safe codex --dangerously-bypass-approvals-and-sandbox $argv
+            end
         end
     end
 
