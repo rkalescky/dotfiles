@@ -1,0 +1,38 @@
+context:
+  version: "1.4.7"
+
+package:
+  name: btop
+  version: ${{ version }}
+
+source:
+  url: https://github.com/aristocratos/btop/archive/refs/tags/v${{ version }}.tar.gz
+  sha256: 933de2e4d1b2211a638be463eb6e8616891bfba73aef5d38060bd8319baeefc6
+
+build:
+  number: 0
+  skip: [osx, win]
+  script:
+    - make -j${CPU_COUNT} CXX=${CXX} CC="${CC} -D_GNU_SOURCE" ADDFLAGS=-ldl ARCH=x86_64 STRIP=true GPU_SUPPORT=true STATIC=false
+    - make -j${CPU_COUNT} PREFIX=${PREFIX} ARCH=x86_64 GPU_SUPPORT=true STATIC=false install
+
+requirements:
+  build:
+    - make
+    - ${{ compiler('cxx') }}
+    - sysroot_linux-64
+  run:
+    - libgcc
+    - libstdcxx
+
+tests:
+  - script:
+      - btop --version | grep -q 'GPU_SUPPORT=true'
+
+about:
+  homepage: https://github.com/aristocratos/btop
+  repository: https://github.com/aristocratos/btop
+  license: Apache-2.0
+  license_file:
+    - LICENSE
+  summary: Resource monitor with GPU support enabled for Linux.

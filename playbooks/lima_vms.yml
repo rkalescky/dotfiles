@@ -1,0 +1,90 @@
+---
+- name: Configure Lima Ubuntu VMs
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    repo_root: "{{ playbook_dir }}/.."
+    lima_common_config: "{{ repo_root }}/lima-common-provision.yaml"
+    lima_vms:
+      - name: ubuntu-arm64
+        config: "{{ repo_root }}/ubuntu-arm64.yaml"
+      - name: ubuntu-amd64
+        config: "{{ repo_root }}/ubuntu-amd64.yaml"
+
+    lima_vm_recreate: false
+    lima_vm_start: true
+    lima_vm_start_parallel: true
+    lima_start_timeout_seconds: 3600
+
+  tasks:
+    - name: Ensure host is macOS
+      fail:
+        msg: "This playbook currently supports macOS hosts only."
+      when: lookup('pipe', 'uname -s') != 'Darwin'
+
+    - name: Ensure limactl is installed
+      command: limactl --version
+      changed_when: false
+
+    - name: Ensure Lima shared config exists
+      stat:
+        path: "{{ lima_common_config }}"
+      register: lima_common_config_stat
+
+    - name: Fail when Lima shared config is missing
+      fail:
+        msg: "Missing required shared config: {{ lima_common_config }}"
+      when: not lima_common_config_stat.stat.exists
+
+    - name: Ensure Lima VM config files exist
+      stat:
+        path: "{{ item.config }}"
+      loop: "{{ lima_vms }}"
+      register: lima_vm_config_stats
+
+    - name: Fail when a Lima VM config file is missing
+      fail:
+        msg: "Missing required VM config: {{ item.item.config }}"
+      loop: "{{ lima_vm_config_stats.results }}"
+      when: not item.stat.exists
+
+    - name: Recreate Lima VMs when requested
+      command: "limactl delete -f -y {{ item.name }}"
+      loop: "{{ lima_vms }}"
+      when: lima_vm_recreate | bool
+      register: lima_delete_results
+      failed_when: false
+      changed_when: lima_delete_results.rc == 0
+
+    - name: Start Lima VMs in parallel
+      command: "limactl start -y --name={{ item.name }} {{ item.config }}"
+      loop: "{{ lima_vms }}"
+      when:
+        - lima_vm_start | bool
+        - lima_vm_start_parallel | bool
+      async: "{{ lima_start_timeout_seconds }}"
+      poll: 0
+      register: lima_start_jobs
+
+    - name: Wait for parallel Lima VM starts to finish
+      async_status:
+        jid: "{{ item.ansible_job_id }}"
+      loop: "{{ lima_start_jobs.results | default([]) }}"
+      register: lima_start_wait
+      until: lima_start_wait.finished
+      retries: 720
+      delay: 5
+      when:
+        - lima_vm_start | bool
+        - lima_vm_start_parallel | bool
+
+    - name: Start Lima VMs sequentially
+      command: "limactl start -y --name={{ item.name }} {{ item.config }}"
+      loop: "{{ lima_vms }}"
+      when:
+        - lima_vm_start | bool
+        - not (lima_vm_start_parallel | bool)
+      register: lima_start_serial
+      changed_when: "'is running' not in (lima_start_serial.stdout | lower)"

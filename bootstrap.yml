@@ -1,0 +1,1487 @@
+---
+- name: Install global Pixi packages (MVP)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    catppuccin_tmux_version: v2.1.3
+    catppuccin_tmux_dest: "{{ lookup('env', 'HOME') }}/.config/tmux/plugins/catppuccin/tmux"
+    catppuccin_fish_dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin"
+    catppuccin_btop_dest: "{{ lookup('env', 'HOME') }}/.config/btop/catppuccin"
+    local_bin_dir: "{{ lookup('env', 'HOME') }}/.local/bin"
+    cargo_home: "{{ lookup('env', 'HOME') }}/.cargo"
+    rustup_home: "{{ lookup('env', 'HOME') }}/.rustup"
+    rustup_bin: "{{ cargo_home }}/bin/rustup"
+    codex_os: "{{ lookup('pipe', 'uname -s') }}"
+    codex_arch: "{{ lookup('pipe', 'uname -m') }}"
+    brew_bin_prefix: "/opt/homebrew/bin:/usr/local/bin"
+    bootstrap_shell_path: "{{ brew_bin_prefix if codex_os == 'Darwin' else '' }}{{ ':' if codex_os == 'Darwin' else '' }}{{ cargo_home }}/bin:{{ lookup('env', 'HOME') }}/.pixi/bin:{{ lookup('env', 'PATH') }}"
+    rustup_target: "{{ 'x86_64-apple-darwin' if codex_os == 'Darwin' and codex_arch == 'x86_64' else ('aarch64-apple-darwin' if codex_os == 'Darwin' and codex_arch == 'arm64' else ('x86_64-unknown-linux-gnu' if codex_os == 'Linux' and codex_arch == 'x86_64' else ('aarch64-unknown-linux-gnu' if codex_os == 'Linux' and codex_arch in ['aarch64', 'arm64'] else ''))) }}"
+    rustup_download_url: "https://static.rust-lang.org/rustup/dist/{{ rustup_target }}/rustup-init"
+    rustup_download_sha256_url: "{{ rustup_download_url }}.sha256"
+    gh_linux_arch: "{{ 'amd64' if codex_arch == 'x86_64' else ('arm64' if codex_arch in ['aarch64', 'arm64'] else '') }}"
+    gh_release_api_url: "https://api.github.com/repos/cli/cli/releases/latest"
+    bootstrap_is_root: "{{ lookup('pipe', 'id -u') == '0' }}"
+    tools:
+      - name: ghostty
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: ghostty
+      - name: mactex-no-gui
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: mactex-no-gui
+      - name: netnewswire
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: netnewswire
+      - name: utm
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: utm
+      - name: codex
+        binary: codex
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: codex
+      - name: claude-code
+        binary: claude
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: claude-code
+      - name: devin
+        binary: devin
+        darwin:
+          install:
+            source: brew
+            kind: cask
+            package: devin-cli
+      - name: agent-safehouse
+        binary: safehouse
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: eugene1g/safehouse/agent-safehouse
+      - name: gh
+        binary: gh
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: gh
+      - name: lima
+        binary: limactl
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: lima
+      - name: lima-additional-guestagents
+        binary: limactl
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: lima-additional-guestagents
+      - name: fish
+        binary: fish
+        pixi:
+          spec: fish
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: fish
+      - name: neovim
+        binary: nvim
+        pixi:
+          spec: nvim
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: neovim
+      - name: tree-sitter-cli
+        binary: tree-sitter
+        pixi:
+          spec: "tree-sitter-cli>=0.26.1"
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tree-sitter-cli
+      - name: tmux
+        binary: tmux
+        pixi:
+          spec: tmux[version=3.7b_]
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tmux
+      - name: ripgrep
+        binary: rg
+        pixi:
+          spec: ripgrep
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: ripgrep
+      - name: tree
+        binary: tree
+        pixi:
+          spec: tree
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: tree
+      - name: fd
+        binary: fd
+        pixi:
+          spec: fd-find
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: fd
+      - name: git-lfs
+        binary: git-lfs
+        pixi:
+          spec: git-lfs
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: git-lfs
+      - name: qsv
+        binary: qsv
+        pixi:
+          spec: qsv
+          channel: conda-forge
+          linux_arches:
+            - x86_64
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: qsv
+      - name: unzip
+        binary: unzip
+        pixi:
+          spec: unzip
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: unzip
+      - name: btop
+        binary: btop
+        pixi:
+          spec: btop
+          channel: conda-forge
+          linux_arches:
+            - aarch64
+            - arm64
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: btop
+      - name: nushell
+        binary: nu
+        pixi:
+          spec: nushell
+          channel: conda-forge
+        darwin:
+          install:
+            source: brew
+            kind: formula
+            package: nushell
+
+  tasks:
+    - name: Check whether Homebrew is installed on macOS
+      shell: command -v brew
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      register: homebrew_check
+      changed_when: false
+      failed_when: false
+      when: codex_os == 'Darwin'
+
+    - name: Fail when Homebrew is missing on macOS
+      fail:
+        msg: >-
+          Homebrew is required on macOS. Run bootstrap.sh, which installs
+          Homebrew and Pixi automatically, or install Homebrew from https://brew.sh.
+      when:
+        - codex_os == 'Darwin'
+        - homebrew_check.rc != 0
+
+    - name: Resolve the Pixi executable path
+      shell: command -v pixi
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+      register: pixi_which
+      changed_when: false
+
+    - name: Set pixi_bin from the resolved Pixi path
+      set_fact:
+        pixi_bin: "{{ pixi_which.stdout }}"
+
+    - name: Ensure configured global packages are installed via Pixi
+      command: "{{ pixi_bin }} global install --channel {{ item.pixi.channel }} {{ item.pixi.spec }}"
+      register: pixi_global_install
+      loop: "{{ tools | selectattr('pixi', 'defined') | list }}"
+      when:
+        - codex_os != 'Darwin' or (item.darwin.install.source | default('pixi')) != 'brew'
+        - codex_os != 'Linux' or codex_arch in (item.pixi.linux_arches | default(['x86_64', 'aarch64', 'arm64']))
+      changed_when: "'already installed' not in (pixi_global_install.stdout | lower)"
+
+    - name: Detect the Pixi btop environment type on Linux x86_64
+      command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - -c
+          - |
+            import sys
+            import tomllib
+            from pathlib import Path
+
+            dependencies = tomllib.loads(Path(sys.argv[1]).read_text()).get("envs", {}).get("btop", {}).get("dependencies", {})
+            btop = dependencies.get("btop")
+            if isinstance(btop, str):
+                print("legacy")
+            elif isinstance(btop, dict) and "path" in btop:
+                print("local")
+            else:
+                print("missing")
+          - "{{ lookup('env', 'HOME') }}/.pixi/manifests/pixi-global.toml"
+      register: btop_pixi_environment
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+
+    - name: Remove the legacy conda-forge btop global environment on Linux
+      command: "{{ pixi_bin }} global uninstall btop"
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+        - (btop_pixi_environment.stdout | trim) == 'legacy'
+
+    - name: Install GPU-enabled btop from the local Pixi build recipe on Linux
+      command:
+        argv:
+          - "{{ pixi_bin }}"
+          - global
+          - install
+          - --path
+          - "{{ playbook_dir }}/btop"
+      register: btop_pixi_build
+      changed_when: "'already installed' not in (btop_pixi_build.stdout | lower)"
+      when:
+        - codex_os == 'Linux'
+        - codex_arch == 'x86_64'
+        - (btop_pixi_environment.stdout | trim) != 'local'
+
+    - name: Ensure local bin directory exists
+      file:
+        path: "{{ local_bin_dir }}"
+        state: directory
+
+    - name: Check whether system bubblewrap is already installed
+      stat:
+        path: /usr/bin/bwrap
+      register: system_bwrap_stat
+      when: codex_os == 'Linux'
+
+    - name: Check whether passwordless sudo is available for system bubblewrap install
+      shell: |
+        set -euo pipefail
+        if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
+          echo true
+        else
+          echo false
+        fi
+      args:
+        executable: /bin/bash
+      register: bubblewrap_sudo_check
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - not bootstrap_is_root
+        - not system_bwrap_stat.stat.exists
+
+    - name: Ensure system bubblewrap is installed for Codex on Linux
+      shell: |
+        set -euo pipefail
+        if command -v apt-get >/dev/null 2>&1; then
+          export DEBIAN_FRONTEND=noninteractive
+          apt-get update
+          apt-get install -y bubblewrap
+        elif command -v dnf >/dev/null 2>&1; then
+          dnf install -y bubblewrap
+        else
+          echo "Unsupported Linux package manager for automatic bubblewrap install" >&2
+          exit 1
+        fi
+      args:
+        executable: /bin/bash
+      become: true
+      when:
+        - codex_os == 'Linux'
+        - not system_bwrap_stat.stat.exists
+        - bootstrap_is_root or (bubblewrap_sudo_check.stdout | trim) == 'true'
+
+    - name: Warn when system bubblewrap could not be installed automatically
+      debug:
+        msg: >-
+          Codex expects system bubblewrap at /usr/bin/bwrap. Re-run this bootstrap
+          as root or with passwordless sudo, or install bubblewrap with your distro
+          package manager.
+      when:
+        - codex_os == 'Linux'
+        - not system_bwrap_stat.stat.exists
+        - not bootstrap_is_root
+        - (bubblewrap_sudo_check.stdout | trim) != 'true'
+
+    - name: Ensure bootstrap temporary directory exists
+      tempfile:
+        state: directory
+        prefix: bootstrap-
+        path: /tmp
+      register: bootstrap_tmp_dir
+
+    - name: Ensure shared Git defaults are installed without replacing personal config
+      tags: git-config
+      block:
+        - name: Ensure Git config directory exists
+          file:
+            path: "{{ lookup('env', 'HOME') }}/.config/git"
+            state: directory
+            mode: "0755"
+
+        - name: Ensure shared Git defaults are installed
+          copy:
+            src: "{{ playbook_dir }}/gitconfig"
+            dest: "{{ lookup('env', 'HOME') }}/.config/git/dotfiles.gitconfig"
+            mode: "0644"
+
+        - name: Include shared Git defaults before personal settings
+          blockinfile:
+            path: "{{ lookup('env', 'HOME') }}/.gitconfig"
+            create: true
+            mode: "0644"
+            backup: true
+            insertbefore: BOF
+            marker: "# {mark} dotfiles Git defaults"
+            block: |
+              [include]
+                  path = ~/.config/git/dotfiles.gitconfig
+
+    - name: Ensure OS and architecture are supported for rustup
+      fail:
+        msg: "Unsupported OS/architecture for rustup installer: {{ codex_os }} {{ codex_arch }}"
+      when: rustup_target == ''
+
+    - name: Check whether rustup is already installed
+      stat:
+        path: "{{ rustup_bin }}"
+      register: rustup_stat
+
+    - name: Download rustup-init binary
+      shell: >
+        curl -fsSL {{ rustup_download_url }} -o {{ bootstrap_tmp_dir.path }}/rustup-init &&
+        chmod 0755 {{ bootstrap_tmp_dir.path }}/rustup-init
+      args:
+        executable: /bin/bash
+      when: not rustup_stat.stat.exists
+
+    - name: Download rustup-init checksum
+      shell: >
+        curl -fsSL {{ rustup_download_sha256_url }} -o {{ bootstrap_tmp_dir.path }}/rustup-init.sha256 &&
+        chmod 0644 {{ bootstrap_tmp_dir.path }}/rustup-init.sha256
+      args:
+        executable: /bin/bash
+      when: not rustup_stat.stat.exists
+
+    - name: Verify rustup-init checksum
+      shell: |
+        set -euo pipefail
+        expected="$(awk '{print $1}' "{{ bootstrap_tmp_dir.path }}/rustup-init.sha256")"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "{{ bootstrap_tmp_dir.path }}/rustup-init" | awk '{print $1}')"
+        else
+          actual="$(shasum -a 256 "{{ bootstrap_tmp_dir.path }}/rustup-init" | awk '{print $1}')"
+        fi
+        test "$expected" = "$actual"
+      args:
+        executable: /bin/bash
+      when: not rustup_stat.stat.exists
+
+    - name: Install rustup and the stable toolchain
+      command:
+        argv:
+          - "{{ bootstrap_tmp_dir.path }}/rustup-init"
+          - -y
+          - --default-toolchain
+          - stable
+          - --profile
+          - default
+          - --no-modify-path
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+      when: not rustup_stat.stat.exists
+
+    - name: Ensure the stable Rust toolchain is installed and current
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - update
+          - stable
+      register: rustup_update_stable
+      changed_when: >
+        'unchanged' not in ((rustup_update_stable.stdout ~ '\n' ~ rustup_update_stable.stderr) | lower)
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Check the active rustup toolchain
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - show
+          - active-toolchain
+      register: rustup_active_toolchain
+      changed_when: false
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure stable is the default Rust toolchain
+      command:
+        argv:
+          - "{{ rustup_bin }}"
+          - default
+          - stable
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+      when: not (rustup_active_toolchain.stdout | lower).startswith('stable')
+
+    - name: Verify rustup, cargo, and rustc are discoverable
+      shell: |
+        set -euo pipefail
+        command -v rustup
+        command -v cargo
+        command -v rustc
+        rustup toolchain list | grep -q '^stable'
+        rustup show active-toolchain | grep -q '^stable'
+        cargo --version
+        rustc --version
+      args:
+        executable: /bin/bash
+      changed_when: false
+      environment:
+        CARGO_HOME: "{{ cargo_home }}"
+        RUSTUP_HOME: "{{ rustup_home }}"
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure macOS Homebrew tools are installed
+      shell: |
+        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
+          brew install --cask "{{ item.darwin.install.package }}"
+        else
+          brew install "{{ item.darwin.install.package }}"
+        fi
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
+      when: codex_os == 'Darwin'
+
+    - name: Verify macOS Homebrew tools are installed and discoverable
+      shell: |
+        set -euo pipefail
+        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
+          brew list --cask "{{ item.darwin.install.package }}" >/dev/null
+        else
+          brew list --formula "{{ item.darwin.install.package }}" >/dev/null
+        fi
+        {% if item.binary is defined %}
+        PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}"
+        {% endif %}
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      changed_when: false
+      loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
+      when: codex_os == 'Darwin'
+
+    - name: Ensure macOS appearance is set to light
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item }}"
+        state: absent
+      loop:
+        - AppleInterfaceStyle
+        - AppleInterfaceStyleSwitchesAutomatically
+      when: codex_os == 'Darwin'
+
+    - name: Configure macOS wallpaper
+      when: codex_os == 'Darwin'
+      tags: macos-wallpaper
+      block:
+        - name: Set Shuffle Aerials to Shuffle All every 12 hours
+          command:
+            argv:
+              - "{{ ansible_playbook_python }}"
+              - "{{ playbook_dir }}/wallpaper/configure.py"
+              - --mode
+              - "{{ 'check' if ansible_check_mode else 'apply' }}"
+          register: macos_wallpaper
+          changed_when: (macos_wallpaper.stdout | from_json).changed
+          check_mode: false
+
+        - name: Reload the changed wallpaper configuration
+          command: killall WallpaperAgent
+          register: macos_wallpaper_reload
+          changed_when: macos_wallpaper_reload.rc == 0
+          failed_when: macos_wallpaper_reload.rc not in [0, 1]
+          when:
+            - not ansible_check_mode
+            - macos_wallpaper is changed
+
+        - name: Verify the wallpaper selection and shuffle interval
+          command:
+            argv:
+              - "{{ ansible_playbook_python }}"
+              - "{{ playbook_dir }}/wallpaper/configure.py"
+              - --mode
+              - verify
+          changed_when: false
+          when: not ansible_check_mode
+
+    - name: Set macOS keyboard repeat to Fast and delay to Short
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item.key }}"
+        type: float
+        # System Settings writes floats; accept equivalent integers from defaults as well.
+        check_type: false
+        value: "{{ item.value }}"
+      loop:
+        - { key: KeyRepeat, value: 2 }
+        - { key: InitialKeyRepeat, value: 15 }
+      when: codex_os == 'Darwin'
+      tags: macos-keyboard
+
+    - name: Configure the macOS mouse
+      when: codex_os == 'Darwin'
+      tags: macos-mouse
+      block:
+        - name: Set mouse tracking speed to Fast
+          community.general.osx_defaults:
+            domain: NSGlobalDomain
+            key: com.apple.mouse.scaling
+            type: float
+            check_type: false
+            value: 3.0
+
+        - name: Disable natural scrolling
+          community.general.osx_defaults:
+            domain: NSGlobalDomain
+            key: com.apple.swipescrolldirection
+            type: bool
+            value: false
+
+        - name: Set mouse secondary click to Click Right Side
+          community.general.osx_defaults:
+            domain: "{{ item }}"
+            key: MouseButtonMode
+            type: string
+            value: TwoButton
+          loop:
+            - com.apple.AppleMultitouchMouse
+            - com.apple.driver.AppleBluetoothMultitouch.mouse
+
+    - name: Ensure macOS Dock automatically hides and shows
+      community.general.osx_defaults:
+        domain: com.apple.dock
+        key: autohide
+        type: bool
+        value: true
+      register: dock_autohide
+      when: codex_os == 'Darwin'
+
+    - name: Ensure macOS Hot Corners are configured
+      community.general.osx_defaults:
+        domain: com.apple.dock
+        key: "{{ item.key }}"
+        type: int
+        value: "{{ item.value }}"
+      loop:
+        - { key: wvous-tl-corner, value: 5 } # top-left: Start Screen Saver
+        - { key: wvous-tr-corner, value: 4 } # top-right: Desktop
+        - { key: wvous-br-corner, value: 2 } # bottom-right: Mission Control
+        - { key: wvous-bl-corner, value: 3 } # bottom-left: Application Windows
+        - { key: wvous-tl-modifier, value: 0 }
+        - { key: wvous-tr-modifier, value: 0 }
+        - { key: wvous-br-modifier, value: 0 }
+        - { key: wvous-bl-modifier, value: 0 }
+      register: dock_hot_corners
+      when: codex_os == 'Darwin'
+
+    - name: Restart the Dock to apply changed settings
+      command: killall Dock
+      when:
+        - codex_os == 'Darwin'
+        - dock_autohide is changed or dock_hot_corners is changed
+
+    - name: Ensure macOS menu bar is never automatically hidden
+      community.general.osx_defaults:
+        domain: NSGlobalDomain
+        key: "{{ item.key }}"
+        type: bool
+        value: "{{ item.value }}"
+      loop:
+        - { key: _HIHideMenuBar, value: false }
+        - { key: AppleMenuBarVisibleInFullscreen, value: true }
+      register: menu_bar_autohide
+      when: codex_os == 'Darwin'
+
+    - name: Restart ControlCenter to apply menu bar settings
+      command: killall ControlCenter
+      when:
+        - codex_os == 'Darwin'
+        - menu_bar_autohide is changed
+
+    - name: Configure the macOS firewall
+      when: codex_os == 'Darwin'
+      tags: macos-firewall
+      vars:
+        macos_firewall_settings:
+          - name: Firewall enabled
+            get: --getglobalstate
+            set: --setglobalstate
+            expected: 'State = [12]'
+          - name: Block all incoming connections
+            get: --getblockall
+            set: --setblockall
+            expected: '^Firewall is blocking all non-essential incoming connections\.$'
+          - name: Automatically allow built-in software
+            get: --getallowsigned
+            set: --setallowsigned
+            expected: 'Automatically allow built-in signed software ENABLED'
+          - name: Automatically allow downloaded signed software
+            get: --getallowsigned
+            set: --setallowsignedapp
+            expected: 'Automatically allow downloaded signed software ENABLED'
+          - name: Stealth mode enabled
+            get: --getstealthmode
+            set: --setstealthmode
+            expected: 'stealth mode is on'
+      block:
+        - name: Read the effective macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item['get'] }}"
+          loop: "{{ macos_firewall_settings }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: macos_firewall_status
+          changed_when: false
+          check_mode: false
+
+        - name: Initialize pending firewall settings
+          set_fact:
+            macos_firewall_pending: []
+
+        - name: Collect firewall settings that need changing
+          set_fact:
+            macos_firewall_pending: "{{ macos_firewall_pending + [item.item] }}"
+          loop: "{{ macos_firewall_status.results }}"
+          loop_control:
+            label: "{{ item.item.name }}"
+          when: item.stdout is not search(item.item.expected)
+
+        - name: Check whether firewall changes can use sudo without a password
+          command: /usr/bin/sudo -n true
+          register: macos_firewall_sudo
+          changed_when: false
+          failed_when: false
+          when:
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+
+        - name: Request administrator password for firewall changes
+          pause:
+            prompt: Enter your macOS administrator password to configure the firewall
+            echo: false
+          register: macos_firewall_password
+          no_log: true
+          when:
+            - not ansible_check_mode
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+            - macos_firewall_sudo.rc != 0
+
+        - name: Require authentication for firewall changes
+          fail:
+            msg: >-
+              Changing the macOS firewall requires administrator access. Re-run bootstrap
+              from a terminal and enter your administrator password when prompted.
+          when:
+            - not ansible_check_mode
+            - macos_firewall_pending | length > 0
+            - not bootstrap_is_root
+            - macos_firewall_sudo.rc != 0
+            - (macos_firewall_password.user_input | default('') | length) == 0
+
+        - name: Apply the requested macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item.set }}"
+              - 'on'
+          become: true
+          vars:
+            ansible_become_password: "{{ macos_firewall_password.user_input | default('') }}"
+          loop: "{{ macos_firewall_pending }}"
+          loop_control:
+            label: "{{ item.name }}"
+          when: not ansible_check_mode
+
+        - name: Verify the effective macOS firewall settings
+          command:
+            argv:
+              - /usr/libexec/ApplicationFirewall/socketfilterfw
+              - "{{ item['get'] }}"
+          loop: "{{ macos_firewall_settings }}"
+          loop_control:
+            label: "{{ item.name }}"
+          register: macos_firewall_verified
+          changed_when: false
+          failed_when: >-
+            macos_firewall_verified.rc != 0 or
+            macos_firewall_verified.stdout is not search(item.expected)
+          when: not ansible_check_mode
+
+    - name: Require an administrator password to access system-wide settings
+      when: codex_os == 'Darwin'
+      tags: macos-admin-settings
+      vars:
+        macos_preferences_become_password: "{{ macos_preferences_password.user_input | default(macos_firewall_password.user_input | default('')) }}"
+        macos_preferences_read_argv:
+          - "{{ ansible_playbook_python }}"
+          - -c
+          - |
+            import json
+            import plistlib
+            import subprocess
+
+            result = subprocess.run(
+                ['/usr/bin/security', 'authorizationdb', 'read', 'system.preferences'],
+                check=True, capture_output=True,
+            )
+            rule = plistlib.loads(result.stdout)
+            enabled = rule.get('shared') is False
+            rule['shared'] = False
+            print(json.dumps({
+                'enabled': enabled,
+                'updated_plist': plistlib.dumps(rule).decode(),
+            }))
+      block:
+        - name: Read the system-wide settings authorization rule
+          command:
+            argv: "{{ macos_preferences_read_argv }}"
+          register: macos_preferences_state
+          changed_when: false
+          check_mode: false
+
+        - name: Enable administrator authentication for system-wide settings
+          when:
+            - not ansible_check_mode
+            - not (macos_preferences_state.stdout | from_json).enabled
+          block:
+            - name: Check whether authorization changes can use sudo without a password
+              command: /usr/bin/sudo -n true
+              register: macos_preferences_sudo
+              changed_when: false
+              failed_when: false
+              when: not bootstrap_is_root
+
+            - name: Request administrator password for system-wide settings
+              pause:
+                prompt: Enter your macOS administrator password to protect system-wide settings
+                echo: false
+              register: macos_preferences_password
+              no_log: true
+              when:
+                - not bootstrap_is_root
+                - macos_preferences_sudo.rc != 0
+                - macos_preferences_become_password | length == 0
+
+            - name: Require authentication for authorization changes
+              fail:
+                msg: >-
+                  Protecting system-wide settings requires administrator access. Re-run
+                  bootstrap from a terminal and enter your administrator password when prompted.
+              when:
+                - not bootstrap_is_root
+                - macos_preferences_sudo.rc != 0
+                - macos_preferences_become_password | length == 0
+
+            - name: Save the system-wide settings authorization rule
+              command:
+                argv:
+                  - /usr/bin/security
+                  - authorizationdb
+                  - write
+                  - system.preferences
+                stdin: "{{ (macos_preferences_state.stdout | from_json).updated_plist }}"
+              become: true
+              vars:
+                ansible_become_password: "{{ macos_preferences_become_password }}"
+
+        - name: Verify administrator authentication for system-wide settings
+          command:
+            argv: "{{ macos_preferences_read_argv }}"
+          register: macos_preferences_verified
+          changed_when: false
+          failed_when: >-
+            macos_preferences_verified.rc != 0 or
+            not (macos_preferences_verified.stdout | from_json).enabled
+          when: not ansible_check_mode
+
+    - name: Read the effective macOS screen lock delay
+      command: /usr/sbin/sysadminctl -screenLock status
+      register: screen_lock_status
+      changed_when: false
+      check_mode: false
+      when: codex_os == 'Darwin'
+
+    - name: Request login password to set the screen lock delay
+      pause:
+        prompt: Enter your macOS login password to require it immediately after screen saver or display off
+        echo: false
+      register: screen_lock_password
+      no_log: true
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+
+    - name: Require interactive authentication when changing the screen lock delay
+      fail:
+        msg: >-
+          Setting the screen lock delay requires your login password. Re-run bootstrap
+          from a terminal, or set Require password to Immediately in System Settings > Lock Screen.
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+        - (screen_lock_password.user_input | default('') | length) == 0
+
+    - name: Require password immediately after screen saver or display off
+      command:
+        argv:
+          - /usr/sbin/sysadminctl
+          - -screenLock
+          - immediate
+          - -password
+          - '-'
+        stdin: "{{ screen_lock_password.user_input }}"
+      no_log: true
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
+
+    - name: Verify macOS requires the password immediately
+      command: /usr/sbin/sysadminctl -screenLock status
+      register: screen_lock_verified
+      changed_when: false
+      failed_when: >-
+        screen_lock_verified.rc != 0 or
+        'screenLock delay is immediate' not in (screen_lock_verified.stdout ~ screen_lock_verified.stderr)
+      when:
+        - codex_os == 'Darwin'
+        - not ansible_check_mode
+
+    - name: Verify tree-sitter CLI is new enough for nvim-treesitter
+      shell: |
+        set -euo pipefail
+        command -v tree-sitter
+        version="$(tree-sitter --version | sed -E 's/.* ([0-9]+)\.([0-9]+)\.([0-9]+).*/\1.\2.\3/')"
+        IFS=. read -r major minor patch <<< "$version"
+        if (( major > 0 || minor > 26 || (minor == 26 && patch >= 1) )); then
+          exit 0
+        fi
+        echo "tree-sitter CLI $version is older than required 0.26.1" >&2
+        exit 1
+      args:
+        executable: /bin/bash
+      changed_when: false
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure Git LFS is initialized for the current user
+      command:
+        argv:
+          - git
+          - lfs
+          - install
+      changed_when: false
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure Linux architecture is supported for GitHub CLI release package
+      fail:
+        msg: "Unsupported Linux architecture for GitHub CLI release package: {{ codex_arch }}"
+      when:
+        - codex_os == 'Linux'
+        - gh_linux_arch == ''
+
+    - name: Get latest GitHub CLI release metadata
+      command: "curl -fsSL {{ gh_release_api_url }}"
+      register: gh_release_raw
+      changed_when: false
+      when: codex_os == 'Linux'
+
+    - name: Parse GitHub CLI release metadata
+      set_fact:
+        gh_release: "{{ gh_release_raw.stdout | from_json }}"
+      when: codex_os == 'Linux'
+
+    - name: Set GitHub CLI release asset names
+      set_fact:
+        gh_version: "{{ gh_release.tag_name | regex_replace('^v', '') }}"
+        gh_release_dir: "gh_{{ gh_release.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}"
+        gh_archive: "gh_{{ gh_release.tag_name | regex_replace('^v', '') }}_linux_{{ gh_linux_arch }}.tar.gz"
+      when: codex_os == 'Linux'
+
+    - name: Set GitHub CLI archive digest from release metadata
+      set_fact:
+        gh_archive_sha256: "{{ ((gh_release.assets | selectattr('name', 'equalto', gh_archive) | map(attribute='digest') | list | first) | default('')) | regex_replace('^sha256:', '') }}"
+      when: codex_os == 'Linux'
+
+    - name: Ensure GitHub CLI archive digest exists in release metadata
+      fail:
+        msg: "Missing sha256 digest for {{ gh_archive }} in GitHub CLI release metadata."
+      when:
+        - codex_os == 'Linux'
+        - gh_archive_sha256 == ''
+
+    - name: Download latest GitHub CLI Linux archive
+      command: >
+        curl -fsSL
+        -o {{ bootstrap_tmp_dir.path }}/{{ gh_archive }}
+        https://github.com/cli/cli/releases/download/{{ gh_release.tag_name }}/{{ gh_archive }}
+      changed_when: true
+      when: codex_os == 'Linux'
+
+    - name: Verify GitHub CLI Linux archive checksum
+      shell: |
+        set -euo pipefail
+        expected="{{ gh_archive_sha256 }}"
+        if command -v sha256sum >/dev/null 2>&1; then
+          actual="$(sha256sum "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}" | awk '{print $1}')"
+        else
+          actual="$(shasum -a 256 "{{ bootstrap_tmp_dir.path }}/{{ gh_archive }}" | awk '{print $1}')"
+        fi
+        test "$expected" = "$actual"
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Extract latest GitHub CLI Linux archive
+      shell: >
+        tar -xzf {{ bootstrap_tmp_dir.path }}/{{ gh_archive }}
+        -C {{ bootstrap_tmp_dir.path }}
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Install GitHub CLI binary to local bin on Linux
+      shell: >
+        install -m 0755
+        {{ bootstrap_tmp_dir.path }}/{{ gh_release_dir }}/bin/gh
+        {{ local_bin_dir }}/gh
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Install or update Codex with the official standalone installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://chatgpt.com/codex/install.sh | sh
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Install or update Claude Code with the official installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://claude.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Verify Claude Code is installed on Linux
+      command:
+        argv:
+          - "{{ local_bin_dir }}/claude"
+          - --version
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - not ansible_check_mode
+
+    - name: Install or update Devin with the official installer on Linux
+      shell: |
+        set -euo pipefail
+        curl -fsSL https://cli.devin.ai/install.sh | bash
+      args:
+        executable: /bin/bash
+      when: codex_os == 'Linux'
+
+    - name: Verify Devin is installed on Linux
+      command:
+        argv:
+          - "{{ local_bin_dir }}/devin"
+          - --version
+      changed_when: false
+      when:
+        - codex_os == 'Linux'
+        - not ansible_check_mode
+
+    - name: Bootstrap Neovim config from kickstart.nvim
+      shell: git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim
+      args:
+        creates: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/.git' }}"
+        executable: /bin/bash
+
+    - name: Ensure kickstart uses current Mason package name for Lua LS
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "'lua_ls', -- Lua Language server"
+        replace: "'lua-language-server', -- Lua Language server"
+
+    - name: Remove stale catppuccin lazy-spec line from kickstart config
+      lineinfile:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        state: absent
+        line: '    { "catppuccin/nvim", name = "catppuccin", priority = 1000, init = function() vim.cmd.colorscheme "catppuccin-latte" end },'
+
+    - name: Ensure legacy lazy.nvim Kickstart uses catppuccin
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: |-
+          (?s)  \{ -- You can easily change to a different colorscheme\..*?\n  \},\n\n(?=  -- Highlight todo, notes, etc in comments)
+        replace: |2-
+            { -- Catppuccin theme
+              'catppuccin/nvim',
+              name = 'catppuccin',
+              lazy = false,
+              priority = 1000,
+              opts = {
+                flavour = 'latte',
+                styles = {
+                  comments = {},
+                },
+              },
+              config = function(_, opts)
+                require('catppuccin').setup(opts)
+                vim.cmd.colorscheme 'catppuccin-latte'
+              end,
+            },
+
+    - name: Ensure kickstart installs catppuccin instead of tokyonight
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "vim\\.pack\\.add \\{ gh 'folke/tokyonight\\.nvim' \\}"
+        replace: "vim.pack.add { gh 'catppuccin/nvim' }"
+
+    - name: Ensure kickstart configures catppuccin latte
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?s)  ---@diagnostic disable-next-line: missing-fields\\n  require\\('tokyonight'\\)\\.setup \\{\\n.*?\\n  \\}"
+        replace: |2-
+            require('catppuccin').setup {
+              flavour = 'latte',
+              styles = {
+                comments = {},
+              },
+            }
+
+    - name: Ensure kickstart loads catppuccin latte
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?m)^  vim\\.cmd\\.colorscheme 'tokyonight-night'$"
+        replace: "  vim.cmd.colorscheme 'catppuccin-latte'"
+
+    - name: Ensure kickstart colorscheme comment matches catppuccin
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?s)  -- Like many other themes, this one has different styles, and you could load\\n  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'\\."
+        replace: "  -- Catppuccin supports multiple flavours such as latte, frappe, macchiato, and mocha."
+
+    - name: Read Neovim config after theme rewrites
+      slurp:
+        src: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+      register: nvim_init_after_theme
+
+    - name: Recover catppuccin in partially rewritten lazy.nvim configs
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(?m)^  (-- Highlight todo, notes, etc in comments)$"
+        replace: |2-
+            { -- Catppuccin theme
+              'catppuccin/nvim',
+              name = 'catppuccin',
+              lazy = false,
+              priority = 1000,
+              opts = {
+                flavour = 'latte',
+                styles = {
+                  comments = {},
+                },
+              },
+              config = function(_, opts)
+                require('catppuccin').setup(opts)
+                vim.cmd.colorscheme 'catppuccin-latte'
+              end,
+            },
+
+            \g<1>
+      when:
+        - "\"require('lazy').setup\" in (nvim_init_after_theme.content | b64decode)"
+        - "\"catppuccin/nvim\" not in (nvim_init_after_theme.content | b64decode)"
+
+    - name: Ensure kickstart declares nvim-treesitter parser registry dependency
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(    'nvim-treesitter/nvim-treesitter',\\n)(?!    dependencies = \\{ 'neovim-treesitter/treesitter-parser-registry' \\},\\n)"
+        replace: "\\1    dependencies = { 'neovim-treesitter/treesitter-parser-registry' },\\n"
+
+    - name: Ensure kickstart uses current nvim-treesitter lazy spec
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "(    'nvim-treesitter/nvim-treesitter',\\n    dependencies = \\{ 'neovim-treesitter/treesitter-parser-registry' \\},\\n)(?:    lazy = false,\\n)?(?:    build = ':TSUpdate',\\n)?(?:    branch = 'main',\\n)?"
+        replace: "\\1    lazy = false,\\n    build = ':TSUpdate',\\n    branch = 'main',\\n"
+
+    - name: Ensure kickstart uses current nvim-treesitter install API
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: "require\\('nvim-treesitter\\.install'\\)\\.ensure_installed\\(([^)]+)\\)"
+        replace: "require('nvim-treesitter').install(\\1)"
+
+    - name: Ensure kickstart configures nvim-treesitter main branch API
+      replace:
+        path: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+        regexp: |-
+          (?s)    main = 'nvim-treesitter\.configs', -- Sets main module to use for opts\n    -- \[\[ Configure Treesitter \]\] See `:help nvim-treesitter`\n    opts = \{\n      ensure_installed = \{ ([^}]*) \},\n      -- Autoinstall languages that are not installed\n      auto_install = true,\n      highlight = \{\n        enable = true,\n        -- Some languages depend on vim's regex highlighting system \(such as Ruby\) for indent rules\.\n        --  If you are experiencing weird indenting issues, add the language to\n        --  the list of additional_vim_regex_highlighting and disabled languages for indent\.\n        additional_vim_regex_highlighting = \{ 'ruby' \},\n      \},\n      indent = \{ enable = true, disable = \{ 'ruby' \} \},\n    \},
+        replace: |-
+          -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
+          config = function()
+            local ensure_installed = { \1 }
+            local treesitter = require 'nvim-treesitter'
+
+            treesitter.install(ensure_installed)
+
+            vim.api.nvim_create_autocmd('FileType', {
+              pattern = '*',
+              callback = function(args)
+                local lang = vim.treesitter.language.get_lang(vim.bo[args.buf].filetype)
+                if not lang or not vim.list_contains(ensure_installed, lang) then
+                  return
+                end
+
+                pcall(vim.treesitter.start, args.buf, lang)
+                if lang ~= 'ruby' then
+                  vim.bo[args.buf].indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+                end
+              end,
+            })
+          end,
+
+    - name: Read rewritten Neovim config
+      slurp:
+        src: "{{ (lookup('env', 'XDG_CONFIG_HOME') | default(lookup('env', 'HOME') ~ '/.config', true)) ~ '/nvim/init.lua' }}"
+      register: nvim_init_lua
+
+    - name: Ensure Neovim Kickstart rewrites were applied
+      assert:
+        that:
+          - "'catppuccin/nvim' in (nvim_init_lua.content | b64decode)"
+          - "'catppuccin-latte' in (nvim_init_lua.content | b64decode)"
+          - "'folke/tokyonight.nvim' not in (nvim_init_lua.content | b64decode)"
+          - "'nvim-treesitter.configs' not in (nvim_init_lua.content | b64decode)"
+          - "\"vim.cmd.colorscheme 'tokyonight-night'\" not in (nvim_init_lua.content | b64decode)"
+        fail_msg: >-
+          Neovim Kickstart rewrites did not apply cleanly. Upstream kickstart.nvim
+          may have changed; inspect ~/.config/nvim/init.lua before plugin sync.
+
+    - name: Sync Neovim plugins headlessly
+      shell: nvim --headless "+Lazy! sync" +qa
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Check nvim-treesitter health
+      shell: nvim --headless "+checkhealth nvim-treesitter" +qa
+      args:
+        executable: /bin/bash
+      changed_when: false
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+
+    - name: Ensure Codex config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.codex"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure Codex shared defaults are merged into local config
+      command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/codex/sync_config.py"
+          - --source
+          - "{{ playbook_dir }}/codex/config.toml"
+          - --dest
+          - "{{ lookup('env', 'HOME') }}/.codex/config.toml"
+      register: codex_config_sync
+      changed_when: "'changed=true' in codex_config_sync.stdout"
+
+    - name: Ensure Safehouse config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/safehouse"
+        state: directory
+      when: codex_os == 'Darwin'
+
+    - name: Ensure Safehouse overlay profiles are installed
+      copy:
+        src: "{{ playbook_dir }}/safehouse/{{ item }}"
+        dest: "{{ lookup('env', 'HOME') }}/.config/safehouse/{{ item }}"
+        mode: "0644"
+      loop:
+        - common.sb
+        - devin.sb
+      when: codex_os == 'Darwin'
+
+    - name: Ensure Catppuccin tmux plugin directory exists
+      file:
+        path: "{{ catppuccin_tmux_dest }}"
+        state: directory
+
+    - name: Ensure Fish themes directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/themes"
+        state: directory
+
+    - name: Ensure Fish completions directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/completions"
+        state: directory
+
+    - name: Ensure Fish conf.d directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d"
+        state: directory
+
+    - name: Ensure Pixi fish completion is installed
+      shell: "{{ pixi_bin }} completion --shell fish > {{ lookup('env', 'HOME') }}/.config/fish/completions/pixi.fish"
+      args:
+        executable: /bin/bash
+
+    - name: Ensure Fish path conf.d snippet is installed
+      copy:
+        src: "{{ playbook_dir }}/fish/conf.d/00-paths.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/00-paths.fish"
+        mode: "0644"
+
+    - name: Ensure Fish Safehouse conf.d snippet is installed
+      copy:
+        src: "{{ playbook_dir }}/fish/conf.d/10-safehouse.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/10-safehouse.fish"
+        mode: "0644"
+      when: codex_os == 'Darwin'
+
+    - name: Remove Fish Safehouse conf.d snippet on non-macOS hosts
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/conf.d/10-safehouse.fish"
+        state: absent
+      when: codex_os != 'Darwin'
+
+    - name: Ensure fish config is installed
+      copy:
+        src: "{{ playbook_dir }}/config.fish"
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/config.fish"
+        mode: "0644"
+
+    - name: Ensure Catppuccin fish theme is installed
+      git:
+        repo: https://github.com/catppuccin/fish.git
+        dest: "{{ catppuccin_fish_dest }}"
+        update: true
+
+    - name: Check for Catppuccin Latte static fish theme file
+      stat:
+        path: "{{ catppuccin_fish_dest }}/themes/static/catppuccin-latte.theme"
+      register: catppuccin_fish_theme_static_latte
+
+    - name: Check for Catppuccin Latte fish theme file
+      stat:
+        path: "{{ catppuccin_fish_dest }}/themes/catppuccin-latte.theme"
+      register: catppuccin_fish_theme_latte
+
+    - name: Ensure Catppuccin Latte fish theme file exists
+      fail:
+        msg: >-
+          Could not find catppuccin-latte.theme in {{ catppuccin_fish_dest }}/themes/static
+          or {{ catppuccin_fish_dest }}/themes.
+      when:
+        - not catppuccin_fish_theme_static_latte.stat.exists
+        - not catppuccin_fish_theme_latte.stat.exists
+
+    - name: Remove legacy Catppuccin fish theme links
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/fish/themes/{{ item }}"
+        state: absent
+      loop:
+        - Catppuccin Latte.theme
+        - Catppuccin Frappe.theme
+        - Catppuccin Macchiato.theme
+        - Catppuccin Mocha.theme
+        - catppuccin-frappe.theme
+        - catppuccin-macchiato.theme
+        - catppuccin-mocha.theme
+
+    - name: Ensure Catppuccin Latte fish theme file is linked
+      file:
+        src: >-
+          {{
+            (catppuccin_fish_dest ~ '/themes/static/catppuccin-latte.theme')
+            if catppuccin_fish_theme_static_latte.stat.exists
+            else (catppuccin_fish_dest ~ '/themes/catppuccin-latte.theme')
+          }}
+        dest: "{{ lookup('env', 'HOME') }}/.config/fish/themes/catppuccin-latte.theme"
+        state: link
+        force: true
+        follow: false
+
+    - name: Ensure Catppuccin fish theme is set to Latte
+      shell: |
+        rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/fish/conf.d/fish_frozen_theme.fish"
+        fish -c 'fish_config theme choose "catppuccin-latte"'
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ bootstrap_shell_path }}"
+      changed_when: false
+
+    - name: Ensure btop config directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - "{{ lookup('env', 'HOME') }}/.config/btop"
+        - "{{ lookup('env', 'HOME') }}/.config/btop/themes"
+
+    - name: Ensure Catppuccin btop theme is installed
+      git:
+        repo: https://github.com/catppuccin/btop.git
+        dest: "{{ catppuccin_btop_dest }}"
+        update: true
+
+    - name: Ensure Catppuccin btop Latte theme file is installed
+      shell: |
+        latte_file="$(find "{{ catppuccin_btop_dest }}/themes" -maxdepth 1 -type f -iname '*latte*.theme' | head -n 1)"
+        test -n "$latte_file"
+        cp "$latte_file" "{{ lookup('env', 'HOME') }}/.config/btop/themes/catppuccin_latte.theme"
+      args:
+        executable: /bin/bash
+
+    - name: Ensure btop uses Catppuccin Latte theme
+      lineinfile:
+        path: "{{ lookup('env', 'HOME') }}/.config/btop/btop.conf"
+        regexp: '^color_theme ='
+        line: 'color_theme = "catppuccin_latte.theme"'
+        create: true
+
+    - name: Ensure Catppuccin tmux plugin is installed
+      git:
+        repo: https://github.com/catppuccin/tmux.git
+        dest: "{{ catppuccin_tmux_dest }}"
+        version: "{{ catppuccin_tmux_version }}"
+        refspec: "+refs/tags/*:refs/tags/*"
+        force: true
+        update: true
+
+    - name: Ensure tmux config is installed
+      copy:
+        src: "{{ playbook_dir }}/tmux.conf"
+        dest: "{{ lookup('env', 'HOME') }}/.tmux.conf"
+        mode: "0644"
+
+    - name: Ensure ghostty config directory is installed
+      copy:
+        src: "{{ playbook_dir }}/ghostty/"
+        dest: "{{ lookup('env', 'HOME') }}/.config/ghostty/"
+        mode: preserve
+
+    - name: Ensure terminfo directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.terminfo"
+        state: directory
+
+    - name: Ensure terminfo entries are installed
+      copy:
+        src: "{{ playbook_dir }}/terminfo/"
+        dest: "{{ lookup('env', 'HOME') }}/.terminfo/"
+        mode: preserve
+
+    - name: Remove bootstrap temporary directory
+      file:
+        path: "{{ bootstrap_tmp_dir.path }}"
+        state: absent

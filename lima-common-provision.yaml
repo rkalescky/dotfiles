@@ -1,0 +1,28 @@
+minimumLimaVersion: 2.0.0
+
+mounts:
+  - location: "~"
+    writable: true
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -euxo pipefail
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y software-properties-common curl git python3 ca-certificates
+      add-apt-repository -y ppa:apptainer/ppa
+      apt-get update
+      apt-get install -y apptainer
+
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -euxo pipefail
+      REAL_HOME="$(getent passwd "$USER" | cut -d: -f6)"
+      if [ -n "${REAL_HOME:-}" ] && [ -d "$REAL_HOME" ]; then
+        export HOME="$REAL_HOME"
+      fi
+      cd "$HOME"
+      curl -fsSL https://raw.githubusercontent.com/rkalescky/dotfiles/main/bootstrap.sh | bash
