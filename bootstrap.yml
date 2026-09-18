@@ -381,11 +381,32 @@
         path: /tmp
       register: bootstrap_tmp_dir
 
-    - name: Ensure global Git config is installed
-      copy:
-        src: "{{ playbook_dir }}/gitconfig"
-        dest: "{{ lookup('env', 'HOME') }}/.gitconfig"
-        mode: "0644"
+    - name: Ensure shared Git defaults are installed without replacing personal config
+      tags: git-config
+      block:
+        - name: Ensure Git config directory exists
+          file:
+            path: "{{ lookup('env', 'HOME') }}/.config/git"
+            state: directory
+            mode: "0755"
+
+        - name: Ensure shared Git defaults are installed
+          copy:
+            src: "{{ playbook_dir }}/gitconfig"
+            dest: "{{ lookup('env', 'HOME') }}/.config/git/dotfiles.gitconfig"
+            mode: "0644"
+
+        - name: Include shared Git defaults before personal settings
+          blockinfile:
+            path: "{{ lookup('env', 'HOME') }}/.gitconfig"
+            create: true
+            mode: "0644"
+            backup: true
+            insertbefore: BOF
+            marker: "# {mark} dotfiles Git defaults"
+            block: |
+              [include]
+                  path = ~/.config/git/dotfiles.gitconfig
 
     - name: Ensure OS and architecture are supported for rustup
       fail:

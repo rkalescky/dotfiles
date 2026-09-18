@@ -28,6 +28,16 @@ For first-time private setup, run `bootstrap_private` from Fish after bootstrap 
 
 GitHub SSH bootstrap attempts to load the key into ssh-agent, but warns and continues if loading fails, including when no agent is running. Unsandboxed SSH can use the key on disk.
 
+## Git config
+
+Bootstrap installs shared Git defaults in `~/.config/git/dotfiles.gitconfig` and adds a managed include at the beginning of `~/.gitconfig`. It preserves existing personal settings and includes, and backs up `~/.gitconfig` when changing the include block. Personal settings after the include take precedence over shared defaults; use `git config --global` normally for your identity and other preferences. Existing includes for `~/.gitconfig.local`, `~/.gitconfig-work`, and `~/.gitconfig-personal` are preserved but are no longer installed as shared defaults.
+
+To apply only the Git configuration change:
+
+```bash
+~/.pixi/envs/ansible/bin/ansible-playbook -i inventory/localhost.yml bootstrap.yml --tags git-config
+```
+
 ## Codex config
 
 `codex/config.toml` is the shared, machine-agnostic Codex defaults file. Bootstrap merges those defaults into `~/.codex/config.toml` instead of copying or symlinking the whole file, so local Codex-managed state such as trusted projects and notices survives across runs.
