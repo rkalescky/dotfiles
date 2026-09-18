@@ -4,8 +4,9 @@ if test (uname -s) = Darwin; and command -q safehouse
         if test (count $argv) -gt 0
             set dir $argv[1]
         end
-        set dir (realpath $dir)
-        if test "$dir" = (realpath "$HOME"); or test "$dir" = /
+        set dir (realpath -- $dir)
+        or return 1
+        if test "$dir" = (realpath -- "$HOME"); or test "$dir" = /
             echo "safehouse: refusing to sandbox $dir; cd into a project directory first" >&2
             return 1
         end
@@ -19,6 +20,8 @@ if test (uname -s) = Darwin; and command -q safehouse
                 break
             else if string match -q -- "--workdir*" "$arg"
                 set workdir_arg 1
+                break
+            else if not string match -q -- "-*" "$arg"
                 break
             end
         end
