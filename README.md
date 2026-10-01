@@ -46,6 +46,8 @@ To apply only the Git configuration change:
 
 Bootstrap installs Devin CLI through the `devin-cli` Homebrew cask on macOS and the [official install script](https://docs.devin.ai/cli) on Linux. The Linux installer places `devin` in `~/.local/bin`, which is included in the Fish path.
 
+Linux bootstrap skips the installer's interactive setup wizard. Run `devin setup` in a terminal after bootstrap to authenticate and configure MCP. Bootstrap fails if the installer changes its setup invocation, so the skip can be reviewed.
+
 Claude Code is installed through the `claude-code` Homebrew cask on macOS and the [official install script](https://code.claude.com/docs/en/setup) on Linux, with the Linux executable at `~/.local/bin/claude`.
 
 On macOS, bootstrap installs `agent-safehouse` and a Fish snippet that runs `claude`, `codex`, and `devin` inside [Agent Safehouse](https://agent-safehouse.dev) with their permission prompts disabled; the kernel sandbox limits writes to the launch directory. Use `command codex` (etc.) to run unsandboxed, or `safe <cmd>` to wrap any other command.

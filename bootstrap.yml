@@ -1078,7 +1078,15 @@
     - name: Install or update Devin with the official installer on Linux
       shell: |
         set -euo pipefail
-        curl -fsSL https://cli.devin.ai/install.sh | bash
+        installer="$(curl -fsSL https://cli.devin.ai/install.sh)"
+        # Authentication requires a terminal; run `devin setup` after bootstrap.
+        setup_command='"$VERSION_DIR/bin/$COMPILED_BIN_NAME" setup'
+        if ! grep -Fxq "$setup_command" <<< "$installer"; then
+          echo "Devin installer changed: review how to skip interactive setup." >&2
+          exit 1
+        fi
+        installer="${installer/"$setup_command"/:}"
+        printf '%s\n' "$installer" | bash
       args:
         executable: /bin/bash
       when: codex_os == 'Linux'
