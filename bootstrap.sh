@@ -178,7 +178,7 @@ if [[ ! -f "$INVENTORY_PATH" ]]; then
   exit 1
 fi
 
-"$PIXI_BIN" global install --channel conda-forge ansible
+"$PIXI_BIN" global install --channel conda-forge ansible --with 'python<3.15'
 
 # Ansible's hidden password prompt needs terminal input, not the bootstrap pipe.
 if [[ -z "${NONINTERACTIVE-}" && -z "${CI-}" ]] && ( : </dev/tty ) 2>/dev/null; then
