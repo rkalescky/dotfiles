@@ -73,7 +73,7 @@ if test (uname -s) = Darwin; and command -q safehouse
                 or return 1
                 safe --workdir=$dir codex --dangerously-bypass-approvals-and-sandbox --no-daemon $argv
             else
-                safe codex --dangerously-bypass-approvals-and-sandbox $argv
+                safe codex --dangerously-bypass-approvals-and-sandbox --no-daemon $argv
             end
         end
     end
