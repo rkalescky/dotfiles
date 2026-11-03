@@ -1315,6 +1315,7 @@
       loop:
         - common.sb
         - devin.sb
+        - xcode-instruments.sb
       when: codex_os == 'Darwin'
 
     - name: Ensure Catppuccin tmux plugin directory exists

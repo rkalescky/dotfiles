@@ -36,7 +36,7 @@ if test (uname -s) = Darwin; and command -q safehouse
     end
 
     function safe-xcode --description "Run a command inside Agent Safehouse with Xcode integration"
-        safe --enable=xcode $argv
+        safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-instruments.sb" $argv
     end
 
     if command -q claude
@@ -87,6 +87,16 @@ if test (uname -s) = Darwin; and command -q safehouse
                 end
             end
             safe --append-profile="$HOME/.config/safehouse/devin.sb" devin --permission-mode dangerous $argv
+        end
+
+        function devin-xcode --description "Devin CLI inside Agent Safehouse with Xcode integration"
+            for arg in $argv
+                if test "$arg" = --sandbox; or string match -q -- "--sandbox=*" "$arg"
+                    echo "devin-xcode: --sandbox cannot be nested inside Safehouse; use `command devin --sandbox` instead" >&2
+                    return 1
+                end
+            end
+            safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-instruments.sb" --append-profile="$HOME/.config/safehouse/devin.sb" devin --permission-mode dangerous $argv
         end
     end
 end

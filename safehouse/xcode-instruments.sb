@@ -1,0 +1,188 @@
+;; ---------------------------------------------------------------------------
+;; Integration: Xcode Instruments (xctrace / Instruments.app / DTServiceHub)
+;;
+;; Instruments ships its analysis machinery as XPCServices bundled inside
+;; DVTInstrumentsFoundation.framework plus developer-tool mach services in
+;; the com.apple.dt.* namespace. xctrace (code-signed as
+;; com.apple.dt.InstrumentsCLI) must look these up to validate and load the
+;; analysis cores under Instruments.app/Contents/Packages/*.instrdst; when
+;; the lookups are denied, `xctrace list instruments` is empty and
+;; `xctrace record` reports no matching template even though the files are
+;; readable.
+;;
+;; Apply with --append-profile alongside --enable=xcode; these grants are
+;; meaningless without the Xcode file access that integration provides.
+;; ---------------------------------------------------------------------------
+
+(allow mach-lookup
+    ;; Bundled Instruments XPC services (ServiceType "Application"): dtarbiter
+    ;; hosts analysis cores, dtsecurity validates .instrdst packages, the
+    ;; model runners back Core AI/Foundation Models templates, and the
+    ;; symbolicator backs `xctrace symbolicate`. App-scoped XPC services are
+    ;; matched by xpc-service-name; kept as exact literals.
+    (xpc-service-name "com.apple.dt.instruments.dtarbiter.xpc")
+    (xpc-service-name "com.apple.dt.instruments.dtsecurity.xpc")
+    (xpc-service-name "com.apple.dt.DTAIModelRunnerService.xpc")
+    (xpc-service-name "com.apple.dt.DTMLModelRunnerService.xpc")
+    (xpc-service-name "com.apple.dt.Xcode.SymbolicateXPCService.xpc")
+
+    ;; Developer-tool mach services in the com.apple.dt.* namespace:
+    ;; Instruments.server/tfpserver, process.kill/process.analysis, ktrace
+    ;; producers and the ktrace_recording provider, dt.tap, os_log-loader,
+    ;; DTAsset* brokers, dyld metrics, screenshot/storekit/capabilities
+    ;; helpers, and backgroundinstruments.
+    (global-name "com.apple.dt")
+    (global-name-regex #"^com\.apple\.dt\.")
+
+    ;; GPU counter collection for Metal System Trace / Game templates.
+    (global-name "com.apple.gputools.GPUToolsAgentService")
+    (global-name "com.apple.gputools.GPUToolsCompatService")
+
+    ;; ML training and ModelIO asset services used by Core ML/Core AI
+    ;; templates.
+    (global-name "com.apple.MLRecipeExecutionService")
+    (global-name "com.apple.ModelIO.AssetLoaderXcode")
+
+    ;; Extension-point resolution probed while scanning packages.
+    (global-name "com.apple.pluginkit.pkd")
+)
+
+;; Debugger-grade process access required by `xctrace record --attach`,
+;; --all-processes, and sampling instruments (task_for_pid flows). Mirrors
+;; the upstream lldb integration; drop this block to restrict profiling to
+;; --launch mode.
+(allow process-info-pidinfo)
+(allow process-info-setcontrol)
+(allow mach-priv-task-port)
+
+;; Probes done during .instrdst package discovery and xctrace startup:
+;; per-user package dir, the InstrumentsCLI prefs file, passwd user lookup,
+;; and disk-space stats for the trace destination volume.
+(allow file-read* file-write*
+    (home-subpath "/Library/Application Support/Instruments")
+)
+(allow file-read*
+    (literal "/private/etc/passwd")
+    (home-literal "/Library/Preferences/com.apple.dt.InstrumentsCLI.plist")
+)
+(allow system-info
+    (info-type "vfs.disk-space")
+)
+
+;; ---------------------------------------------------------------------------
+;; Recording path. xctrace spawns DTServiceHub (from DVTInstrumentsFoundation/
+;; Resources) which inherits the sandbox and runs the capture; the denials
+;; below were observed from real `xctrace record` runs.
+;; ---------------------------------------------------------------------------
+
+;; "Failed to start the recording: Could not set/reset the recording
+;; priority" — DTServiceHub writes kperf sysctls (blessed_preempt, reset,
+;; action tables) to configure kernel trace capture.
+(allow sysctl-write
+    (sysctl-name-regex #"^kperf\.")
+)
+(allow sysctl-read
+    (sysctl-name-regex #"^kperf\.")
+)
+
+;; "Data stream: Fatal logging system error: Connection to logd failed" —
+;; os_log streaming during capture uses the logd admin channel.
+;; Note: grants read access to the unified log (incl. private fields) inside
+;; this sandbox; drop if recording signpost/log templates is not needed.
+(allow mach-lookup
+    (global-name "com.apple.logd.admin")
+)
+
+;; Loaded-kext enumeration done while configuring kernel trace providers,
+;; and KernelKit kext binaries read during kernel symbolication.
+(allow system-kext-query)
+(allow file-read*
+    (subpath "/System/KernelKit")
+)
+
+;; os_log/syslog capture path: the system diagnostics store (tracev3 shards,
+;; timesync state, version plist) and uuidtext image records used for log
+;; symbolication, plus the legacy syslog socket used as the logging
+;; fallback channel.
+(allow file-read*
+    (literal "/private/var/db/uuidtext")
+    (subpath "/private/var/db/uuidtext")
+    (literal "/private/var/db/diagnostics")
+    (subpath "/private/var/db/diagnostics")
+)
+(allow network-outbound
+    (remote unix-socket (path-literal "/private/var/run/syslog"))
+)
+
+;; Device/runtime discovery during record setup: CoreDevice launch agent and
+;; auth daemon (both reached via XPC lookups), cryptex-mounted simulator
+;; runtime roots, DeviceKit tree, iOSSupport extension points, and volume
+;; metadata.
+(allow mach-lookup
+    (global-name "com.apple.authd")
+    (xpc-service-name "com.apple.authd")
+    (global-name "com.apple.CoreDevice.CoreDeviceService")
+    (xpc-service-name "com.apple.CoreDevice.CoreDeviceService")
+)
+(allow file-read*
+    (literal "/Library/Developer/DeviceKit")
+    (subpath "/Library/Developer/DeviceKit")
+    (subpath "/private/var/run/com.apple.security.cryptexd/mnt")
+    (subpath "/System/iOSSupport/System/Library/ExtensionKit")
+)
+(allow file-read-metadata
+    (literal "/Volumes")
+    (subpath "/Volumes")
+)
+
+;; NVMe/power user client probed by File Activity and Power instruments.
+(allow iokit-open-user-client
+    (iokit-user-client-class "AppleNVMeEANUC")
+)
+
+;; App enumeration done while resolving --launch/--attach targets: installed
+;; app metadata (names/icons only) plus the per-user icon cache blobs the
+;; iconservices lookup returns.
+(allow file-read-metadata
+    (subpath "/Applications")
+    (subpath "/System/Applications")
+    (subpath "/Library/Application Support")
+)
+(allow file-read*
+    (subpath "/Library/Caches/com.apple.iconservices.store")
+    (home-subpath "/Library/Caches/com.apple.iconservices.store")
+    (regex #"^/Applications/[^/]*\.app/Contents/(Info\.plist|PkgInfo)$")
+    (regex #"^/System/Applications(/[^/]+)*/[^/]*\.app/Contents/(Info\.plist|PkgInfo)$")
+)
+
+;; Prefs consulted when resolving record targets and device state.
+(allow file-read*
+    (home-literal "/Library/Preferences/com.apple.CoreSimulator.plist")
+    (home-literal "/Library/Preferences/com.apple.LaunchServices/com.apple.LaunchServices.plist")
+    (home-literal "/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure.plist")
+    (home-literal "/Library/Preferences/com.apple.Accessibility.plist")
+    (home-literal "/Library/Preferences/com.apple.universalaccess.plist")
+)
+
+;; User-session services probed when resolving apps/windows for --launch and
+;; --attach-by-name targets: LaunchServices type databases (same pair granted
+;; by the launch-services integration), icon store, power assertions, TCC,
+;; pasteboard, window server, and per-user distributed notifications.
+(allow mach-lookup
+    (global-name "com.apple.lsd.mapdb")
+    (global-name "com.apple.lsd.modifydb")
+    ;; Gatekeeper resolution probed for every candidate attach/launch app,
+    ;; plus symbolication and Spotlight metadata used by trace analysis.
+    (global-name "com.apple.coreservices.quarantine-resolver")
+    (global-name "com.apple.coresymbolicationd")
+    (global-name "com.apple.metadata.mds")
+    (global-name "com.apple.iconservices")
+    (global-name "com.apple.iconservices.store")
+    (global-name "com.apple.PowerManagement.control")
+    (global-name "com.apple.tccd")
+    (global-name "com.apple.tccd.system")
+    (global-name "com.apple.pasteboard.1")
+    (global-name "com.apple.dock.server")
+    (global-name "com.apple.windowserver.active")
+    (global-name-regex #"^com\.apple\.distributed_notifications@")
+)
