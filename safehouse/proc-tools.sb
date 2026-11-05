@@ -1,0 +1,19 @@
+;; ---------------------------------------------------------------------------
+;; Integration: Process enumeration
+;; Read-only host process listing for pgrep/pkill-style tools.
+;;
+;; On macOS 26+, pgrep/pkill enumerate via the com.apple.sysmond Mach service;
+;; the base profile denies that lookup, so they fail outright even for
+;; same-sandbox processes. This profile re-allows enumeration only.
+;;
+;; Signalling stays scoped to (target same-sandbox): kill/pkill on host
+;; processes remain denied. For host signalling use --enable=process-control.
+;; ps(1) remains unavailable regardless; use pgrep -l / pgrep -fl instead.
+;;
+;; Caveat: sysmond resolves argv server-side, so pgrep -fl exposes host
+;; argv/env regardless of the procargs/pidinfo denies in 10-system-runtime.
+;; ---------------------------------------------------------------------------
+
+(allow mach-lookup
+    (global-name "com.apple.sysmond")  ;; Process inventory service used by pgrep/pkill on modern macOS.
+)

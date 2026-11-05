@@ -26,4 +26,6 @@
 (deny file-write*
     (home-subpath "/.dotfiles/safehouse")
     (home-literal "/.dotfiles/fish/conf.d/10-safehouse.fish")
+    (home-subpath "/.config/safehouse")
+    (home-literal "/.config/fish/conf.d/10-safehouse.fish")
 )

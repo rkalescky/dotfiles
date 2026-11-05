@@ -1315,6 +1315,7 @@
       loop:
         - common.sb
         - devin.sb
+        - proc-tools.sb
         - xcode-instruments.sb
       when: codex_os == 'Darwin'
 

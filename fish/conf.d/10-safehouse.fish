@@ -32,7 +32,7 @@ if test (uname -s) = Darwin; and command -q safehouse
         else
             set workdir_arg
         end
-        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" $workdir_arg $argv
+        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" --append-profile="$HOME/.config/safehouse/proc-tools.sb" $workdir_arg $argv
     end
 
     function safe-xcode --description "Run a command inside Agent Safehouse with Xcode integration"
