@@ -1,0 +1,28 @@
+{
+  // Merged into ~/.config/devin/config.json by devin/sync_config.py.
+  // Keys here win over local values; local-only keys are preserved.
+
+  // Run sessions inside each `devin` process instead of the shared
+  // background daemon (daemon is the default since v3000.13).
+  "process_model": "in-process",
+
+  // Same default the fish Safehouse wrapper passes per launch via
+  // --permission-mode dangerous; covers unwrapped invocations too
+  // (`command devin`, editor-spawned `devin acp`). Safehouse is the
+  // containment boundary, so per-call prompts are off.
+  "permission_mode": "dangerous",
+
+  "permissions": {
+    "allow": [
+      // Unioned into the local allow list, never replacing it.
+      // Pre-approves every shell command so Plan mode research does
+      // not prompt (verified: plan mode routes exec through the
+      // regular permission store, and the prompt is the plan approval
+      // itself, not per-command asks).
+      "exec",
+      // Pre-approves all MCP tools; Plan mode still only exposes
+      // tools the server annotates read-only.
+      "mcp__*"
+    ]
+  }
+}

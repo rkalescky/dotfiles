@@ -42,6 +42,12 @@ To apply only the Git configuration change:
 
 `codex/config.toml` is the shared, machine-agnostic Codex defaults file. Bootstrap merges those defaults into `~/.codex/config.toml` instead of copying or symlinking the whole file, so local Codex-managed state such as trusted projects and notices survives across runs.
 
+## Devin config
+
+`devin/config.json` is the shared, machine-agnostic Devin defaults file. Bootstrap merges those defaults into `~/.config/devin/config.json` instead of copying or symlinking the whole file, so Devin-managed state such as the organization id and interactive "always allow" grants survives across runs. `permissions.allow`/`deny`/`ask` lists are unioned rather than replaced; every other managed key wins over the local value.
+
+The managed defaults set `process_model` to `in-process` (sessions run inside each `devin` process rather than the shared background daemon), `permission_mode` to `dangerous` (the same default the fish Safehouse wrapper passes per launch, also covering `devin acp` sessions), and pre-approve `exec` and `mcp__*` so Plan mode research does not prompt per command — Plan mode still only exposes read-only MCP tools, and the plan itself is approved via `exit_plan_mode` as usual.
+
 ## Agent Safehouse
 
 Bootstrap installs Devin CLI through the `devin-cli` Homebrew cask on macOS and the [official install script](https://docs.devin.ai/cli) on Linux. The Linux installer places `devin` in `~/.local/bin`, which is included in the Fish path.

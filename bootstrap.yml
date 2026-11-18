@@ -1301,6 +1301,24 @@
       register: codex_config_sync
       changed_when: "'changed=true' in codex_config_sync.stdout"
 
+    - name: Ensure Devin config directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/devin"
+        state: directory
+        mode: "0700"
+
+    - name: Ensure Devin shared defaults are merged into local config
+      command:
+        argv:
+          - "{{ ansible_playbook_python }}"
+          - "{{ playbook_dir }}/devin/sync_config.py"
+          - --source
+          - "{{ playbook_dir }}/devin/config.json"
+          - --dest
+          - "{{ lookup('env', 'HOME') }}/.config/devin/config.json"
+      register: devin_config_sync
+      changed_when: "'changed=true' in devin_config_sync.stdout"
+
     - name: Ensure Safehouse config directory exists
       file:
         path: "{{ lookup('env', 'HOME') }}/.config/safehouse"
