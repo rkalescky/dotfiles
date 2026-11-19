@@ -36,6 +36,7 @@
             source: brew
             kind: cask
             package: mactex-no-gui
+            requires_sudo: true
       - name: netnewswire
         darwin:
           install:
@@ -48,6 +49,7 @@
             source: brew
             kind: cask
             package: utm
+            force: true
       - name: agent-safehouse
         binary: safehouse
         darwin:
@@ -317,7 +319,7 @@
       changed_when: false
       when:
         - codex_os == 'Linux'
-        - not bootstrap_is_root
+        - not bootstrap_is_root | bool
         - not system_bwrap_stat.stat.exists
 
     - name: Ensure system bubblewrap is installed for Codex on Linux
@@ -339,7 +341,7 @@
       when:
         - codex_os == 'Linux'
         - not system_bwrap_stat.stat.exists
-        - bootstrap_is_root or (bubblewrap_sudo_check.stdout | trim) == 'true'
+        - bootstrap_is_root | bool or (bubblewrap_sudo_check.stdout | trim) == 'true'
 
     - name: Warn when system bubblewrap could not be installed automatically
       debug:
@@ -350,7 +352,7 @@
       when:
         - codex_os == 'Linux'
         - not system_bwrap_stat.stat.exists
-        - not bootstrap_is_root
+        - not bootstrap_is_root | bool
         - (bubblewrap_sudo_check.stdout | trim) != 'true'
 
     - name: Ensure bootstrap temporary directory exists
@@ -502,13 +504,29 @@
 
     - name: Ensure macOS Homebrew tools are installed
       shell: |
-        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
-          brew install --cask "{{ item.darwin.install.package }}"
+        set -euo pipefail
+        kind="{{ item.darwin.install.kind }}"
+        package="{{ item.darwin.install.package }}"
+        if [[ "$kind" == "cask" ]]; then
+          if brew list --cask "$package" >/dev/null 2>&1; then
+            exit 0
+          fi
+          if [[ "{{ item.darwin.install.requires_sudo | default(false) }}" == "True" ]] &&
+             ! /usr/bin/sudo -n -k true >/dev/null 2>&1; then
+            echo "skipping $package: it needs sudo and no passwordless sudo is available" >&2
+            exit 0
+          fi
+          brew install --cask "$package" ||
+            brew install --cask --adopt "$package"{%- if item.darwin.install.force | default(false) %} ||
+            brew install --cask --force "$package"{%- endif %}
         else
-          brew install "{{ item.darwin.install.package }}"
+          brew list --formula "$package" >/dev/null 2>&1 ||
+            brew install "$package"
         fi
       args:
         executable: /bin/bash
+      register: brew_install
+      changed_when: (brew_install.stdout ~ brew_install.stderr) is search('Installing', ignorecase=true)
       environment:
         PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
       loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
@@ -517,11 +535,14 @@
     - name: Verify macOS Homebrew tools are installed and discoverable
       shell: |
         set -euo pipefail
-        if [[ "{{ item.darwin.install.kind }}" == "cask" ]]; then
-          brew list --cask "{{ item.darwin.install.package }}" >/dev/null
-        else
-          brew list --formula "{{ item.darwin.install.package }}" >/dev/null
+        kind="{{ item.darwin.install.kind }}"
+        package="{{ item.darwin.install.package }}"
+        if [[ "{{ item.darwin.install.requires_sudo | default(false) }}" == "True" ]] &&
+           ! brew list --"$kind" "$package" >/dev/null 2>&1; then
+          echo "skipping $package: it is not installed" >&2
+          exit 0
         fi
+        brew list --"$kind" "$package" >/dev/null
         {% if item.binary is defined %}
         PATH="{{ brew_bin_prefix }}:$PATH" command -v "{{ item.binary }}"
         {% endif %}
@@ -690,6 +711,9 @@
 
     - name: Restart the Dock to apply changed settings
       command: killall Dock
+      register: dock_restart
+      changed_when: dock_restart.rc == 0
+      failed_when: dock_restart.rc not in [0, 1]
       when:
         - codex_os == 'Darwin'
         - dock_autohide is changed or dock_hot_corners is changed
@@ -708,6 +732,9 @@
 
     - name: Restart ControlCenter to apply menu bar settings
       command: killall ControlCenter
+      register: controlcenter_restart
+      changed_when: controlcenter_restart.rc == 0
+      failed_when: controlcenter_restart.rc not in [0, 1]
       when:
         - codex_os == 'Darwin'
         - menu_bar_autohide is changed
@@ -769,31 +796,20 @@
           failed_when: false
           when:
             - macos_firewall_pending | length > 0
-            - not bootstrap_is_root
+            - not bootstrap_is_root | bool
 
-        - name: Request administrator password for firewall changes
-          pause:
-            prompt: Enter your macOS administrator password to configure the firewall
-            echo: false
-          register: macos_firewall_password
-          no_log: true
-          when:
-            - not ansible_check_mode
-            - macos_firewall_pending | length > 0
-            - not bootstrap_is_root
-            - macos_firewall_sudo.rc != 0
-
-        - name: Require authentication for firewall changes
-          fail:
+        - name: Warn when firewall changes cannot be applied headlessly
+          debug:
             msg: >-
-              Changing the macOS firewall requires administrator access. Re-run bootstrap
-              from a terminal and enter your administrator password when prompted.
+              Skipping {{ macos_firewall_pending | length }} macOS firewall
+              change(s): they require administrator access and no passwordless
+              sudo is available. Configure the firewall in System Settings or
+              enable passwordless sudo and re-run bootstrap.
           when:
             - not ansible_check_mode
             - macos_firewall_pending | length > 0
-            - not bootstrap_is_root
-            - macos_firewall_sudo.rc != 0
-            - (macos_firewall_password.user_input | default('') | length) == 0
+            - not bootstrap_is_root | bool
+            - (macos_firewall_sudo.rc | default(1)) != 0
 
         - name: Apply the requested macOS firewall settings
           command:
@@ -802,12 +818,12 @@
               - "{{ item.set }}"
               - 'on'
           become: true
-          vars:
-            ansible_become_password: "{{ macos_firewall_password.user_input | default('') }}"
           loop: "{{ macos_firewall_pending }}"
           loop_control:
             label: "{{ item.name }}"
-          when: not ansible_check_mode
+          when:
+            - not ansible_check_mode
+            - bootstrap_is_root | bool or (macos_firewall_sudo.rc | default(1)) == 0
 
         - name: Verify the effective macOS firewall settings
           command:
@@ -822,13 +838,16 @@
           failed_when: >-
             macos_firewall_verified.rc != 0 or
             macos_firewall_verified.stdout is not search(item.expected)
-          when: not ansible_check_mode
+          when:
+            - not ansible_check_mode
+            - >-
+              macos_firewall_pending | length == 0 or bootstrap_is_root | bool or
+              (macos_firewall_sudo.rc | default(1)) == 0
 
     - name: Require an administrator password to access system-wide settings
       when: codex_os == 'Darwin'
       tags: macos-admin-settings
       vars:
-        macos_preferences_become_password: "{{ macos_preferences_password.user_input | default(macos_firewall_password.user_input | default('')) }}"
         macos_preferences_read_argv:
           - "{{ ansible_playbook_python }}"
           - -c
@@ -866,28 +885,17 @@
               register: macos_preferences_sudo
               changed_when: false
               failed_when: false
-              when: not bootstrap_is_root
+              when: not bootstrap_is_root | bool
 
-            - name: Request administrator password for system-wide settings
-              pause:
-                prompt: Enter your macOS administrator password to protect system-wide settings
-                echo: false
-              register: macos_preferences_password
-              no_log: true
-              when:
-                - not bootstrap_is_root
-                - macos_preferences_sudo.rc != 0
-                - macos_preferences_become_password | length == 0
-
-            - name: Require authentication for authorization changes
-              fail:
+            - name: Warn when authorization changes cannot be applied headlessly
+              debug:
                 msg: >-
-                  Protecting system-wide settings requires administrator access. Re-run
-                  bootstrap from a terminal and enter your administrator password when prompted.
+                  Skipping administrator authentication for system-wide settings:
+                  it requires administrator access and no passwordless sudo is
+                  available. Enable passwordless sudo and re-run bootstrap.
               when:
-                - not bootstrap_is_root
-                - macos_preferences_sudo.rc != 0
-                - macos_preferences_become_password | length == 0
+                - not bootstrap_is_root | bool
+                - (macos_preferences_sudo.rc | default(1)) != 0
 
             - name: Save the system-wide settings authorization rule
               command:
@@ -898,8 +906,8 @@
                   - system.preferences
                 stdin: "{{ (macos_preferences_state.stdout | from_json).updated_plist }}"
               become: true
-              vars:
-                ansible_become_password: "{{ macos_preferences_become_password }}"
+              when:
+                - bootstrap_is_root | bool or (macos_preferences_sudo.rc | default(1)) == 0
 
         - name: Verify administrator authentication for system-wide settings
           command:
@@ -909,7 +917,12 @@
           failed_when: >-
             macos_preferences_verified.rc != 0 or
             not (macos_preferences_verified.stdout | from_json).enabled
-          when: not ansible_check_mode
+          when:
+            - not ansible_check_mode
+            - >-
+              (macos_preferences_state.stdout | from_json).enabled or
+              bootstrap_is_root | bool or
+              (macos_preferences_sudo.rc | default(1)) == 0
 
     - name: Read the effective macOS screen lock delay
       command: /usr/sbin/sysadminctl -screenLock status
@@ -918,38 +931,12 @@
       check_mode: false
       when: codex_os == 'Darwin'
 
-    - name: Request login password to set the screen lock delay
-      pause:
-        prompt: Enter your macOS login password to require it immediately after screen saver or display off
-        echo: false
-      register: screen_lock_password
-      no_log: true
-      when:
-        - codex_os == 'Darwin'
-        - not ansible_check_mode
-        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
-
-    - name: Require interactive authentication when changing the screen lock delay
-      fail:
+    - name: Warn when the screen lock delay cannot be set headlessly
+      debug:
         msg: >-
-          Setting the screen lock delay requires your login password. Re-run bootstrap
-          from a terminal, or set Require password to Immediately in System Settings > Lock Screen.
-      when:
-        - codex_os == 'Darwin'
-        - not ansible_check_mode
-        - "'screenLock delay is immediate' not in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
-        - (screen_lock_password.user_input | default('') | length) == 0
-
-    - name: Require password immediately after screen saver or display off
-      command:
-        argv:
-          - /usr/sbin/sysadminctl
-          - -screenLock
-          - immediate
-          - -password
-          - '-'
-        stdin: "{{ screen_lock_password.user_input }}"
-      no_log: true
+          Skipping the screen lock delay: sysadminctl needs the macOS login
+          password, which cannot be provided headlessly. Set 'Require password'
+          to 'Immediately' in System Settings > Lock Screen.
       when:
         - codex_os == 'Darwin'
         - not ansible_check_mode
@@ -965,6 +952,7 @@
       when:
         - codex_os == 'Darwin'
         - not ansible_check_mode
+        - "'screenLock delay is immediate' in (screen_lock_status.stdout ~ screen_lock_status.stderr)"
 
     - name: Verify tree-sitter CLI is new enough for nvim-treesitter
       shell: |

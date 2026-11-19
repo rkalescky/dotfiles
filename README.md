@@ -8,15 +8,17 @@ curl -fsSL https://raw.githubusercontent.com/rkalescky/dotfiles/main/bootstrap.s
 
 On macOS this ensures Homebrew is installed and installs/updates Pixi via `brew`; on Linux it installs/updates the standalone Pixi binary. It then syncs this repo to `~/.dotfiles` and runs `bootstrap.yml`.
 
-macOS bootstrap also sets “Require password after screen saver begins or display is turned off” to “Immediately”. If a change is needed, bootstrap asks for your login password in a hidden terminal prompt and verifies the effective setting afterward. Homebrew installation can also prompt for your administrator password, including when using the piped command above.
+Bootstrap always assumes a headless run: nothing prompts for input. Steps that need administrator access apply automatically when running as root or with passwordless sudo, and are skipped with a warning otherwise.
 
-The macOS firewall is enabled with “Block all incoming connections”, both automatic allow options (built-in and downloaded signed software), and stealth mode turned on. Bootstrap prompts for administrator authentication when needed and verifies the settings. To apply only these firewall settings, run:
+macOS bootstrap expects “Require password after screen saver begins or display is turned off” to be “Immediately”. Since `sysadminctl` needs the login password, bootstrap warns and skips when the setting is not already immediate; set it manually in System Settings > Lock Screen.
+
+The macOS firewall is enabled with “Block all incoming connections”, both automatic allow options (built-in and downloaded signed software), and stealth mode turned on. Changes apply automatically with passwordless sudo and are skipped with a warning otherwise. To apply only these firewall settings, run:
 
 ```bash
 ~/.pixi/envs/ansible/bin/ansible-playbook -i inventory/localhost.yml bootstrap.yml --tags macos-firewall
 ```
 
-Bootstrap also enables “Require an administrator password to access system-wide settings”. Use `--tags macos-admin-settings` to apply only this setting; administrator authentication is requested only when a change needs it.
+Bootstrap also enables “Require an administrator password to access system-wide settings” when passwordless sudo is available, and warns and skips otherwise. Use `--tags macos-admin-settings` to apply only this setting.
 
 Wallpaper uses Shuffle Aerials → Shuffle All, changing every 12 hours. Use `--tags macos-wallpaper` to apply only the wallpaper configuration. Existing display/Space assignments and wallpaper/screen saver linkage are preserved; the original wallpaper store is backed up before the first change.
 

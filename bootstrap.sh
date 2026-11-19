@@ -52,12 +52,8 @@ ensure_homebrew() {
 
   if [[ -z "$brew_exec" ]]; then
     installer="$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    # Keep installer prompts off the pipe carrying this bootstrap script.
-    if [[ -z "${NONINTERACTIVE-}" && -z "${CI-}" ]] && ( : </dev/tty ) 2>/dev/null; then
-      /bin/bash -c "$installer" </dev/tty
-    else
-      NONINTERACTIVE=1 /bin/bash -c "$installer" </dev/null
-    fi
+    # Headless: the installer must never prompt; it gets /dev/null.
+    NONINTERACTIVE=1 /bin/bash -c "$installer" </dev/null
     if [[ -x /opt/homebrew/bin/brew ]]; then
       brew_exec="/opt/homebrew/bin/brew"
     elif [[ -x /usr/local/bin/brew ]]; then
@@ -180,12 +176,8 @@ fi
 
 "$PIXI_BIN" global install --channel conda-forge ansible --with 'python<3.15'
 
-# Ansible's hidden password prompt needs terminal input, not the bootstrap pipe.
-if [[ -z "${NONINTERACTIVE-}" && -z "${CI-}" ]] && ( : </dev/tty ) 2>/dev/null; then
-  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH" </dev/tty
-else
-  "$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH" </dev/null
-fi
+# Headless: Ansible must never prompt; it gets /dev/null.
+"$HOME/.pixi/envs/ansible/bin/ansible-playbook" -i "$INVENTORY_PATH" "$PLAYBOOK_PATH" </dev/null
 
 export PUBLIC_DOTFILES_DIR="$BOOTSTRAP_DIR"
 export PRIVATE_DOTFILES_DIR="$PRIVATE_BOOTSTRAP_DIR"
