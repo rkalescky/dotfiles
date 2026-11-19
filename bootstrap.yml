@@ -1333,6 +1333,7 @@
       loop:
         - common.sb
         - devin.sb
+        - gpu-opencl.sb
         - proc-tools.sb
         - xcode-instruments.sb
       when: codex_os == 'Darwin'
