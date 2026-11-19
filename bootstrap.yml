@@ -48,27 +48,6 @@
             source: brew
             kind: cask
             package: utm
-      - name: codex
-        binary: codex
-        darwin:
-          install:
-            source: brew
-            kind: cask
-            package: codex
-      - name: claude-code
-        binary: claude
-        darwin:
-          install:
-            source: brew
-            kind: cask
-            package: claude-code
-      - name: devin
-        binary: devin
-        darwin:
-          install:
-            source: brew
-            kind: cask
-            package: devin-cli
       - name: agent-safehouse
         binary: safehouse
         darwin:
@@ -552,6 +531,47 @@
         PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
       changed_when: false
       loop: "{{ tools | selectattr('darwin.install.source', 'defined') | selectattr('darwin.install.source', 'equalto', 'brew') | list }}"
+      when: codex_os == 'Darwin'
+
+    - name: Remove Homebrew casks superseded by official CLI installers
+      shell: |
+        set -euo pipefail
+        if brew list --cask "{{ item }}" >/dev/null 2>&1; then
+          brew uninstall --cask "{{ item }}"
+          echo "changed=true"
+        fi
+      args:
+        executable: /bin/bash
+      environment:
+        PATH: "{{ brew_bin_prefix }}:{{ lookup('env', 'PATH') }}"
+      loop:
+        - codex
+        - claude-code
+        - devin-cli
+      register: agent_cask_uninstall
+      changed_when: "'changed=true' in agent_cask_uninstall.stdout"
+      when: codex_os == 'Darwin'
+
+    - name: Remove brew-backed agent CLI symlinks from local bin
+      shell: |
+        set -euo pipefail
+        path="{{ local_bin_dir }}/{{ item }}"
+        if [[ -L "$path" ]]; then
+          case "$(readlink "$path")" in
+            /opt/homebrew/* | /usr/local/*)
+              rm -f "$path"
+              echo "changed=true"
+              ;;
+          esac
+        fi
+      args:
+        executable: /bin/bash
+      loop:
+        - codex
+        - claude
+        - devin
+      register: agent_cli_symlink_cleanup
+      changed_when: "'changed=true' in agent_cli_symlink_cleanup.stdout"
       when: codex_os == 'Darwin'
 
     - name: Ensure macOS appearance is set to light
@@ -1049,33 +1069,37 @@
         executable: /bin/bash
       when: codex_os == 'Linux'
 
-    - name: Install or update Codex with the official standalone installer on Linux
+    - name: Install or update Codex with the official standalone installer
       shell: |
         set -euo pipefail
         curl -fsSL https://chatgpt.com/codex/install.sh | sh
       args:
         executable: /bin/bash
-      when: codex_os == 'Linux'
 
-    - name: Install or update Claude Code with the official installer on Linux
+    - name: Verify Codex is installed
+      command:
+        argv:
+          - "{{ local_bin_dir }}/codex"
+          - --version
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Install or update Claude Code with the official installer
       shell: |
         set -euo pipefail
         curl -fsSL https://claude.ai/install.sh | bash
       args:
         executable: /bin/bash
-      when: codex_os == 'Linux'
 
-    - name: Verify Claude Code is installed on Linux
+    - name: Verify Claude Code is installed
       command:
         argv:
           - "{{ local_bin_dir }}/claude"
           - --version
       changed_when: false
-      when:
-        - codex_os == 'Linux'
-        - not ansible_check_mode
+      when: not ansible_check_mode
 
-    - name: Install or update Devin with the official installer on Linux
+    - name: Install or update Devin with the official installer
       shell: |
         set -euo pipefail
         installer="$(curl -fsSL https://cli.devin.ai/install.sh)"
@@ -1089,17 +1113,14 @@
         printf '%s\n' "$installer" | bash
       args:
         executable: /bin/bash
-      when: codex_os == 'Linux'
 
-    - name: Verify Devin is installed on Linux
+    - name: Verify Devin is installed
       command:
         argv:
           - "{{ local_bin_dir }}/devin"
           - --version
       changed_when: false
-      when:
-        - codex_os == 'Linux'
-        - not ansible_check_mode
+      when: not ansible_check_mode
 
     - name: Bootstrap Neovim config from kickstart.nvim
       shell: git clone https://github.com/nvim-lua/kickstart.nvim.git "${XDG_CONFIG_HOME:-$HOME/.config}"/nvim

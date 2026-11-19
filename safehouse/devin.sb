@@ -6,11 +6,12 @@
 ;; nest inside Safehouse. Use `devin --permission-mode dangerous` instead.
 ;; ---------------------------------------------------------------------------
 
-;; - Homebrew cask binary under /opt/homebrew/Caskroom/devin-cli (readable via /opt)
+;; - install.sh binary shim: ~/.local/bin/devin -> ~/.local/share/devin/cli/_versions/*
 ;; - config under ~/.config/devin, credentials/sessions under ~/.local/share/devin
 ;; - cache under ~/.cache/devin, plan files under ~/.devin
 
 (allow file-read* file-write*
+    (home-prefix "/.local/bin/devin")     ;; Installer-managed shim; writable for in-sandbox self-updates.
     (home-subpath "/.config/devin")       ;; config.json, cli/ settings.
     (home-subpath "/.cache/devin")        ;; telemetry state and model/plugin caches.
     (home-subpath "/.local/share/devin")  ;; credentials.toml, sessions.db, transcripts, MCP oauth.

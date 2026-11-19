@@ -50,11 +50,11 @@ The managed defaults set `process_model` to `in-process` (sessions run inside ea
 
 ## Agent Safehouse
 
-Bootstrap installs Devin CLI through the `devin-cli` Homebrew cask on macOS and the [official install script](https://docs.devin.ai/cli) on Linux. The Linux installer places `devin` in `~/.local/bin`, which is included in the Fish path.
+Bootstrap installs Devin CLI through the [official install script](https://docs.devin.ai/cli) on macOS and Linux. The installer places `devin` in `~/.local/bin`, which is included in the Fish path.
 
-Linux bootstrap skips the installer's interactive setup wizard. Run `devin setup` in a terminal after bootstrap to authenticate and configure MCP. Bootstrap fails if the installer changes its setup invocation, so the skip can be reviewed.
+Bootstrap skips the installer's interactive setup wizard. Run `devin setup` in a terminal after bootstrap to authenticate and configure MCP. Bootstrap fails if the installer changes its setup invocation, so the skip can be reviewed.
 
-Claude Code is installed through the `claude-code` Homebrew cask on macOS and the [official install script](https://code.claude.com/docs/en/setup) on Linux, with the Linux executable at `~/.local/bin/claude`.
+Claude Code and Codex are installed through their official install scripts (`claude.ai/install.sh` and `chatgpt.com/codex/install.sh`) on macOS and Linux, with executables at `~/.local/bin/claude` and `~/.local/bin/codex`. Bootstrap removes the superseded `claude-code`, `codex`, and `devin-cli` Homebrew casks on macOS.
 
 On macOS, bootstrap installs `agent-safehouse` and a Fish snippet that runs `claude`, `codex`, and `devin` inside [Agent Safehouse](https://agent-safehouse.dev) with their permission prompts disabled; the kernel sandbox limits writes to the launch directory. Use `command codex` (etc.) to run unsandboxed, or `safe <cmd>` to wrap any other command.
 
