@@ -13,6 +13,10 @@
   // sandbox, which is the containment boundary.
   "permission_mode": "normal",
 
+  // No "Generated with Devin" / "Co-Authored-By: Devin" on commits
+  // and PRs.
+  "attribution": false,
+
   "permissions": {
     "allow": [
       // Unioned into the local allow list, never replacing it.
