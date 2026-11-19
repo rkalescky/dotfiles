@@ -1,7 +1,9 @@
 minimumLimaVersion: 2.0.0
 
 mounts:
-  - location: "~"
+  # Dedicated exchange point only; mounting ~ would give guests read/write
+  # access to host SSH keys, tokens, and the private dotfiles checkout.
+  - location: "~/share"
     writable: true
 
 provision:

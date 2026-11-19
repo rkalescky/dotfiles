@@ -1,17 +1,18 @@
 ;; ---------------------------------------------------------------------------
-;; Integration: Xcode Instruments (xctrace / Instruments.app / DTServiceHub)
+;; Integration: Xcode extras (Instruments + OpenCL on GPU)
 ;;
-;; Instruments ships its analysis machinery as XPCServices bundled inside
-;; DVTInstrumentsFoundation.framework plus developer-tool mach services in
-;; the com.apple.dt.* namespace. xctrace (code-signed as
-;; com.apple.dt.InstrumentsCLI) must look these up to validate and load the
-;; analysis cores under Instruments.app/Contents/Packages/*.instrdst; when
-;; the lookups are denied, `xctrace list instruments` is empty and
-;; `xctrace record` reports no matching template even though the files are
-;; readable.
+;; Opt-in overlay applied alongside --enable=xcode by the safe-xcode and
+;; devin-xcode wrappers. Two tool families share it because both need
+;; grants too broad for the default agent surface:
 ;;
-;; Apply with --append-profile alongside --enable=xcode; these grants are
-;; meaningless without the Xcode file access that integration provides.
+;;   * Instruments (xctrace / Instruments.app / DTServiceHub): bundled XPC
+;;     services, com.apple.dt.* mach services, kernel trace capture, and
+;;     debugger-grade task-port access.
+;;   * OpenCL: cl2Metal JIT through com.apple.metalfe/com.apple.gpuarchiver
+;;     plus path-scoped file-extension issuance for the shader caches.
+;;
+;; These grants are meaningless without the Xcode file access and GPU IOKit
+;; clients those integrations provide.
 ;; ---------------------------------------------------------------------------
 
 (allow mach-lookup
@@ -45,6 +46,14 @@
 
     ;; Extension-point resolution probed while scanning packages.
     (global-name "com.apple.pluginkit.pkd")
+
+    ;; OpenCL cl2Metal path: Metal frontend and GPU binary-archive services.
+    ;; metalfe is probed both as a global mach name and as a bundled XPC
+    ;; service depending on the caller; grant both lookup forms. The gpu
+    ;; integration's com.apple.MTLCompilerService alone is not enough.
+    (global-name "com.apple.metalfe")
+    (xpc-service-name "com.apple.metalfe")
+    (global-name "com.apple.gpuarchiver")
 )
 
 ;; Debugger-grade process access required by `xctrace record --attach`,
@@ -185,4 +194,32 @@
     (global-name "com.apple.dock.server")
     (global-name "com.apple.windowserver.active")
     (global-name-regex #"^com\.apple\.distributed_notifications@")
+)
+
+;; ---------------------------------------------------------------------------
+;; OpenCL (cl2Metal) shader-cache path.
+;;
+;; Frameworks call sandbox_extension_issue_file() to mint extension tokens
+;; for the shader/GPU caches; the op stays default-denied without this grant
+;; and directory grants alone cannot fix it. The grant is path-scoped rather
+;; than blanket: unscoped file-issue-extension lets a sandboxed process mint
+;; tokens for arbitrary paths, bypassing this profile's own file denies.
+;; The /var/folders pair covers the per-user temp cache roots the base
+;; temp-dir grant already makes writable; both spellings are needed because
+;; the kernel resolves /var -> /private/var before matching. If cl2Metal
+;; still fails, capture the denied path with
+;; `log show --last 5m --predicate 'eventMessage CONTAINS "deny"'` and
+;; extend the list.
+;; ---------------------------------------------------------------------------
+(allow file-issue-extension*
+    (home-subpath "/Library/Caches/com.apple.metal")
+    (home-subpath "/Library/Caches/com.apple.gpuarchiver")
+    (subpath "/var/folders")
+    (subpath "/private/var/folders")
+)
+
+;; Per-user Metal shader cache and GPU binary archives in the home dir.
+(allow file-read* file-write*
+    (home-subpath "/Library/Caches/com.apple.metal")
+    (home-subpath "/Library/Caches/com.apple.gpuarchiver")
 )

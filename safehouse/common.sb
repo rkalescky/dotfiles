@@ -29,3 +29,29 @@
     (home-subpath "/.config/safehouse")
     (home-literal "/.config/fish/conf.d/10-safehouse.fish")
 )
+
+;; SCM and package-manager credential stores. The base policy grants these
+;; for agent PR automation and registry access, but the tokens are bearer
+;; credentials readable by every wrapped process; deny them here (appended
+;; rules take precedence over earlier allows) and run authenticated gh/git/
+;; package operations outside the sandbox — same posture as the SSH-key
+;; exclusion. Agent-local state (~/.codex, ~/.claude, ~/.local/share/devin)
+;; stays granted because the agents cannot function without it.
+(deny file-read* file-write*
+    (home-subpath "/.config/gh")
+    (home-subpath "/.cache/gh")
+    (home-subpath "/.local/share/gh")
+    (home-subpath "/.local/state/gh")
+    (home-subpath "/.config/glab-cli")
+    (home-subpath "/.cache/glab-cli")
+    (home-subpath "/.local/share/glab-cli")
+    (home-subpath "/.local/state/glab-cli")
+    (home-literal "/.npmrc")
+    (home-subpath "/.config/pnpm")
+    (home-subpath "/Library/Preferences/pnpm")
+    (home-subpath "/.config/configstore")
+    (home-subpath "/.local/share/uv/credentials")
+    (home-literal "/.cargo/credentials")
+    (home-literal "/.cargo/credentials.toml")
+    (home-literal "/.netrc")
+)

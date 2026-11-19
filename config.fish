@@ -46,7 +46,8 @@ end
 if not test -f "$GH_SSH_KEY_PATH"
 mkdir -p "$HOME/.ssh"
 chmod 700 "$HOME/.ssh"
-ssh-keygen -t ed25519 -f "$GH_SSH_KEY_PATH" -N "" -C "$(whoami)@$(hostname)"
+# Prompts for a passphrase; ssh-add --apple-use-keychain persists it.
+ssh-keygen -t ed25519 -f "$GH_SSH_KEY_PATH" -C "$(whoami)@$(hostname)"
 end
 
 gh_ssh_load_identity

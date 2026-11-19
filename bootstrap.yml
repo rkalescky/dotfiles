@@ -1342,8 +1342,16 @@
       loop:
         - common.sb
         - devin.sb
-        - gpu-opencl.sb
         - proc-tools.sb
+        - xcode-extras.sb
+      when: codex_os == 'Darwin'
+
+    - name: Ensure superseded Safehouse overlay profiles are removed
+      file:
+        path: "{{ lookup('env', 'HOME') }}/.config/safehouse/{{ item }}"
+        state: absent
+      loop:
+        - gpu-opencl.sb
         - xcode-instruments.sb
       when: codex_os == 'Darwin'
 

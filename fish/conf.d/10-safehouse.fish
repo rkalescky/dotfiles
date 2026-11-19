@@ -32,11 +32,11 @@ if test (uname -s) = Darwin; and command -q safehouse
         else
             set workdir_arg
         end
-        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" --append-profile="$HOME/.config/safehouse/proc-tools.sb" --append-profile="$HOME/.config/safehouse/gpu-opencl.sb" $workdir_arg $argv
+        safehouse --enable=gpu --env-pass=DEVELOPER_DIR,TOOLCHAINS --append-profile="$HOME/.config/safehouse/common.sb" --append-profile="$HOME/.config/safehouse/proc-tools.sb" $workdir_arg $argv
     end
 
     function safe-xcode --description "Run a command inside Agent Safehouse with Xcode integration"
-        safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-instruments.sb" $argv
+        safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-extras.sb" $argv
     end
 
     if command -q claude
@@ -96,7 +96,7 @@ if test (uname -s) = Darwin; and command -q safehouse
                     return 1
                 end
             end
-            safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-instruments.sb" --append-profile="$HOME/.config/safehouse/devin.sb" devin --permission-mode dangerous $argv
+            safe --enable=xcode --append-profile="$HOME/.config/safehouse/xcode-extras.sb" --append-profile="$HOME/.config/safehouse/devin.sb" devin --permission-mode dangerous $argv
         end
     end
 end

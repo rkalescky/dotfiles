@@ -6,23 +6,29 @@
   // background daemon (daemon is the default since v3000.13).
   "process_model": "in-process",
 
-  // Same default the fish Safehouse wrapper passes per launch via
-  // --permission-mode dangerous; covers unwrapped invocations too
-  // (`command devin`, editor-spawned `devin acp`). Safehouse is the
-  // containment boundary, so per-call prompts are off.
-  "permission_mode": "dangerous",
+  // Supervised default for unwrapped invocations (`command devin`,
+  // editor-spawned `devin acp`): shell commands and writes prompt.
+  // The fish Safehouse wrapper passes --permission-mode dangerous per
+  // launch, so wrapped sessions still run unattended inside the
+  // sandbox, which is the containment boundary.
+  "permission_mode": "normal",
 
   "permissions": {
     "allow": [
       // Unioned into the local allow list, never replacing it.
-      // Pre-approves every shell command so Plan mode research does
-      // not prompt (verified: plan mode routes exec through the
-      // regular permission store, and the prompt is the plan approval
-      // itself, not per-command asks).
-      "exec",
-      // Pre-approves all MCP tools; Plan mode still only exposes
-      // tools the server annotates read-only.
-      "mcp__*"
+      // Curated read-only commands only — the blanket "exec" and
+      // "mcp__*" entries must be removed from the local config once
+      // by hand, since sync never subtracts entries.
+      "Exec(git status)",
+      "Exec(git diff)",
+      "Exec(git log)",
+      "Exec(git show)",
+      "Exec(git remote)",
+      "Exec(git fetch)",
+      "Exec(wc)",
+      "Exec(grep)",
+      "Exec(sed)",
+      "Exec(ls)"
     ]
   }
 }

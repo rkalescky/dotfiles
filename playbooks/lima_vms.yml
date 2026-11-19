@@ -50,6 +50,12 @@
       loop: "{{ lima_vm_config_stats.results }}"
       when: not item.stat.exists
 
+    - name: Ensure Lima host-guest share directory exists
+      file:
+        path: "{{ lookup('env', 'HOME') }}/share"
+        state: directory
+        mode: "0755"
+
     - name: Recreate Lima VMs when requested
       command: "limactl delete -f -y {{ item.name }}"
       loop: "{{ lima_vms }}"
